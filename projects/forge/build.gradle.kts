@@ -26,6 +26,22 @@ neoForge {
         }
     }
 
+    // Keep Minecraft-dependent fixtures in the same transforming classloader as the tests.
+    val computercraftUnitTests by mods.registering {
+        cct.sourceDirectories.get().forEach {
+            if (it.classes) sourceSet(it.sourceSet)
+        }
+        sourceSet(sourceSets.testFixtures.get())
+        sourceSet(project(":core").sourceSets["testFixtures"])
+    }
+
+    // Modern NeoForge requires FML initialization before Minecraft's feature flags load.
+    unitTest {
+        enable()
+        testedMod = computercraftUnitTests
+        loadedMods = computercraftUnitTests.map { setOf(it) }
+    }
+
     val computercraftDatagen by mods.registering {
         cct.sourceDirectories.get().forEach {
             if (it.classes) sourceSet(it.sourceSet)
@@ -233,6 +249,10 @@ tasks.sourcesJar {
 // Check tasks
 
 tasks.test {
+    // Instrument our code only; Minecraft's large generated initializers exceed JVM limits.
+    extensions.configure<org.gradle.testing.jacoco.plugins.JacocoTaskExtension> {
+        includes = listOf("dan200.computercraft.*")
+    }
     systemProperty("cct.test-files", layout.buildDirectory.dir("tmp/testFiles").getAbsolutePath())
 }
 

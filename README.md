@@ -32,6 +32,10 @@ The `forge` project targets **NeoForge** on this Minecraft version. The distribu
 
 This is a replacement for CC: Tweaked, retaining the `computercraft` mod ID, existing block IDs and public API packages for compatibility. Install only one of the two mods. Test with a copy of your world and matching client/server builds before deployment; compatibility with the full pack is not yet certified.
 
+## Baseline validation
+
+On 2026-10-21, `:forge:assemble :core:test :forge:test` completed successfully on Linux with Temurin JDK 25. Core: 1,606 passed and 13 skipped; NeoForge: 10 passed. The loader tests use ModDevGradle's FML-aware JUnit integration for NeoForge 21.1.250. Full-pack gameplay and dedicated-server deployment have not been tested.
+
 ## Direction
 
 1. Independent compute workers with isolated Lua state, message passing, cancellation, and results delivered as events. CPU-heavy jobs should continue independently of game ticks.
