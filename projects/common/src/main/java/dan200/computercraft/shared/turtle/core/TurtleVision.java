@@ -27,12 +27,14 @@ public final class TurtleVision {
     private int radius;
     private long revision;
     private boolean dirty;
+    private boolean entityDirty;
     private boolean notified;
     private @Nullable Level level;
     private BlockPos origin = BlockPos.ZERO;
     private Direction facing = Direction.NORTH;
     private long loadedChunks;
     private @Nullable Map<String, Object> snapshot;
+    private @Nullable Map<String, Object> entitySnapshot;
 
     public TurtleVision(TurtleAccessInternal turtle) {
         this.turtle = turtle;
@@ -48,6 +50,21 @@ public final class TurtleVision {
         }
     }
 
+    public static void entityChanged(net.minecraft.world.entity.Entity entity, double x, double y, double z) {
+        var level = entity.level();
+        if (level == null || level.isClientSide) return;
+        synchronized (WATCHERS) {
+            for (var watcher : WATCHERS) {
+                synchronized (watcher) {
+                    if (watcher.level != level) continue;
+                    var origin = net.minecraft.world.phys.Vec3.atCenterOf(watcher.origin);
+                    var range = watcher.radius + 4.0;
+                    if (origin.distanceToSqr(entity.position()) <= range * range || origin.distanceToSqr(x, y, z) <= range * range) watcher.entityDirty = true;
+                }
+            }
+        }
+    }
+
     public void reset() {
         synchronized (WATCHERS) {
             WATCHERS.remove(this);
@@ -55,7 +72,9 @@ public final class TurtleVision {
                 radius = 0;
                 level = null;
                 snapshot = null;
+                entitySnapshot = null;
                 dirty = false;
+                entityDirty = false;
                 notified = false;
             }
         }
@@ -87,7 +106,7 @@ public final class TurtleVision {
     public synchronized void update(LongConsumer notify) {
         if (radius == 0 || turtle.isRemoved()) return;
         checkPose();
-        if (dirty && !notified) {
+        if ((dirty || entityDirty) && !notified) {
             notified = true;
             notify.accept(++revision);
         }
@@ -102,7 +121,16 @@ public final class TurtleVision {
                     radius = requestedRadius;
                     dirty = true;
                 }
-                if (!dirty && snapshot != null) return snapshot;
+                if (!dirty && snapshot != null) {
+                    if (entityDirty) {
+                        if (!notified) revision++;
+                        snapshot = new HashMap<>(snapshot);
+                        snapshot.put("revision", revision);
+                        entityDirty = false;
+                        notified = false;
+                    }
+                    return withEntities(snapshot);
+                }
                 var blocks = new ArrayList<Map<String, Object>>();
                 var view = TurtleTarget.view(turtle);
                 for (int x = -radius; x <= radius; x++) {
@@ -123,9 +151,38 @@ public final class TurtleVision {
                 if (!notified) revision++;
                 snapshot = Map.of("revision", revision, "radius", radius, "facing", facing.getName(), "blocks", blocks);
                 dirty = false;
+                entityDirty = false;
                 notified = false;
-                return snapshot;
+                return withEntities(snapshot);
             }
         }
     }
+
+    private Map<String, Object> withEntities(Map<String, Object> blocks) {
+        var result = new HashMap<>(blocks);
+        var entities = new ArrayList<Map<String, Object>>();
+        var origin = net.minecraft.world.phys.Vec3.atCenterOf(turtle.getPosition());
+        var right = turtle.getDirection().getClockWise();
+        var forward = turtle.getDirection();
+        for (var entity : turtle.getLevel().getEntities((net.minecraft.world.entity.Entity) null,
+            new net.minecraft.world.phys.AABB(origin, origin).inflate(radius), entity -> entity.isAlive() && !entity.isSpectator())) {
+            if (TurtleTarget.visibleEntity(turtle, entity, radius) == null) continue;
+            var details = new HashMap<>(VanillaDetailRegistries.ENTITY.getDetails(entity));
+            var delta = entity.position().subtract(origin);
+            details.put("uuid", entity.getUUID().toString());
+            details.put("x", delta.x * right.getStepX() + delta.z * right.getStepZ());
+            details.put("y", delta.y);
+            details.put("z", delta.x * forward.getStepX() + delta.z * forward.getStepZ());
+            details.put("kind", entity instanceof net.minecraft.world.entity.player.Player ? "player"
+                : entity instanceof net.minecraft.world.entity.item.ItemEntity ? "item"
+                : entity instanceof net.minecraft.world.entity.LivingEntity ? "living" : "entity");
+            if (entity instanceof net.minecraft.world.entity.item.ItemEntity item) details.put("item", VanillaDetailRegistries.ITEM_STACK.getDetails(item.getItem()));
+            entities.add(details);
+        }
+        result.put("entities", entities);
+        if (entitySnapshot != null && entitySnapshot.equals(result)) return entitySnapshot;
+        entitySnapshot = result;
+        return result;
+    }
+
 }

@@ -209,7 +209,7 @@ public class PlatformHelperImpl implements PlatformHelper {
 
     @Override
     public InteractionResult canAttackEntity(ServerPlayer player, Entity entity) {
-        return CommonHooks.onPlayerAttackTarget(player, entity) ? InteractionResult.PASS : InteractionResult.SUCCESS;
+        return CommonHooks.onPlayerAttackTarget(player, entity) ? InteractionResult.PASS : InteractionResult.FAIL;
     }
 
     @Override
@@ -221,7 +221,8 @@ public class PlatformHelperImpl implements PlatformHelper {
             interactAt = entity.interactAt(player, hitPos.subtract(entity.position()), InteractionHand.MAIN_HAND);
         }
 
-        return interactAt.consumesAction() || player.interactOn(entity, InteractionHand.MAIN_HAND).consumesAction();
+        if (interactAt != InteractionResult.PASS) return interactAt.consumesAction();
+        return player.interactOn(entity, InteractionHand.MAIN_HAND).consumesAction();
     }
 
     @Override

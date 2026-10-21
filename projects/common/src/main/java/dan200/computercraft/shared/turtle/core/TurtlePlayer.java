@@ -95,6 +95,7 @@ public final class TurtlePlayer {
         setRotation(turtle.getDirection().toYRot(), 0);
 
         player.getInventory().clearContent();
+        player.setShiftKeyDown(false);
 
         // Prevent the turtle reaching too far.
         trySetAttribute(Attributes.BLOCK_INTERACTION_RANGE, MAX_REACH);
@@ -145,6 +146,7 @@ public final class TurtlePlayer {
         setRotation((float) Math.toDegrees(Math.atan2(-delta.x, delta.z)),
             (float) -Math.toDegrees(Math.atan2(delta.y, Math.sqrt(delta.x * delta.x + delta.z * delta.z))));
         trySetAttribute(Attributes.BLOCK_INTERACTION_RANGE, TurtleTarget.REACH);
+        trySetAttribute(Attributes.ENTITY_INTERACTION_RANGE, TurtleTarget.REACH);
     }
 
     public void loadInventory(ItemStack stack) {
@@ -168,7 +170,11 @@ public final class TurtlePlayer {
     }
 
     public void unloadInventory(ITurtleAccess turtle) {
-        if (player.isUsingItem()) player.stopUsingItem();
+        unloadInventory(turtle, true);
+    }
+
+    public void unloadInventory(ITurtleAccess turtle, boolean stopUsing) {
+        if (stopUsing && player.isUsingItem()) player.stopUsingItem();
 
         var inventory = player.getInventory();
         var turtleInventory = turtle.getInventory();

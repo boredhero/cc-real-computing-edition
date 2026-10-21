@@ -89,6 +89,7 @@ public class TurtleAPI implements ILuaAPI {
     @Override
     public void shutdown() {
         vision.reset();
+        if (turtle instanceof TurtleBrain brain) brain.itemUse.requestCancel();
     }
 
     @Override
@@ -102,11 +103,11 @@ public class TurtleAPI implements ILuaAPI {
     }
 
     /**
-     * Observe visible blocks and subscribe to coalesced turtle_vision invalidation events.
+     * Observe visible blocks and entities and subscribe to coalesced turtle_vision invalidation events.
      * Coordinates are right/up/forward. No chunks are loaded by this operation.
      *
      * @param radius Integer observation radius, from 1 to 8.
-     * @return A snapshot with blocks, radius, facing and revision fields.
+     * @return A snapshot with blocks, entities, radius, facing and revision fields.
      * @throws LuaException If the radius is invalid.
      */
     @LuaFunction(mainThread = true)
@@ -129,11 +130,11 @@ public class TurtleAPI implements ILuaAPI {
         });
     }
 
-    private MethodResult interactAt(double x, double y, double z, TurtleInteractAtCommand.Action action) throws LuaException {
+    private MethodResult interactAt(double x, double y, double z, TurtleInteractAtCommand.Action action, Optional<Map<?, ?>> options, int count, int slot) throws LuaException {
         for (var value : new double[]{ x, y, z }) {
             if (!Double.isFinite(value) || value != Math.floor(value) || Math.abs(value) > TurtleTarget.REACH) throw new LuaException("Coordinates must be integers within reach (4.5 blocks)");
         }
-        return trackCommand(new TurtleInteractAtCommand((int) x, (int) y, (int) z, action));
+        return trackCommand(new TurtleInteractAtCommand((int) x, (int) y, (int) z, action, TurtleInteractionOptions.parse(options), count, slot));
     }
 
     /**
@@ -142,12 +143,13 @@ public class TurtleAPI implements ILuaAPI {
      * @param x Right offset.
      * @param y Up offset.
      * @param z Forward offset.
+     * @param options Optional table with face and sneak fields.
      * @return Success, or false and a reason.
      * @throws LuaException If coordinates are invalid.
      */
     @LuaFunction
-    public final MethodResult digAt(double x, double y, double z) throws LuaException {
-        return interactAt(x, y, z, TurtleInteractAtCommand.Action.DIG);
+    public final MethodResult digAt(double x, double y, double z, Optional<Map<?, ?>> options) throws LuaException {
+        return interactAt(x, y, z, TurtleInteractAtCommand.Action.DIG, options, 64, 0);
     }
 
     /**
@@ -156,12 +158,13 @@ public class TurtleAPI implements ILuaAPI {
      * @param x Right offset.
      * @param y Up offset.
      * @param z Forward offset.
+     * @param options Optional table with face and sneak fields.
      * @return Success, or false and a reason.
      * @throws LuaException If coordinates are invalid.
      */
     @LuaFunction
-    public final MethodResult placeAt(double x, double y, double z) throws LuaException {
-        return interactAt(x, y, z, TurtleInteractAtCommand.Action.PLACE);
+    public final MethodResult placeAt(double x, double y, double z, Optional<Map<?, ?>> options) throws LuaException {
+        return interactAt(x, y, z, TurtleInteractAtCommand.Action.PLACE, options, 64, 0);
     }
 
     /**
@@ -170,12 +173,162 @@ public class TurtleAPI implements ILuaAPI {
      * @param x Right offset.
      * @param y Up offset.
      * @param z Forward offset.
+     * @param options Optional table with face and sneak fields.
      * @return Success, or false and a reason.
      * @throws LuaException If coordinates are invalid.
      */
     @LuaFunction
+    public final MethodResult useAt(double x, double y, double z, Optional<Map<?, ?>> options) throws LuaException {
+        return interactAt(x, y, z, TurtleInteractAtCommand.Action.USE, options, 64, 0);
+    }
+
+    public final MethodResult digAt(double x, double y, double z) throws LuaException {
+        return digAt(x, y, z, Optional.empty());
+    }
+
+    public final MethodResult placeAt(double x, double y, double z) throws LuaException {
+        return placeAt(x, y, z, Optional.empty());
+    }
+
     public final MethodResult useAt(double x, double y, double z) throws LuaException {
-        return interactAt(x, y, z, TurtleInteractAtCommand.Action.USE);
+        return useAt(x, y, z, Optional.empty());
+    }
+
+    private MethodResult entityCommand(String uuid, TurtleEntityCommand.Action action, boolean sneak) throws LuaException {
+        java.util.UUID target;
+        try {
+            target = java.util.UUID.fromString(uuid);
+            if (!target.toString().equalsIgnoreCase(uuid)) throw new IllegalArgumentException();
+        } catch (IllegalArgumentException e) {
+            throw new LuaException("Invalid entity UUID");
+        }
+        return trackCommand(new TurtleEntityCommand(target, action, sneak));
+    }
+
+    /**
+     * Attack a visible entity using an equipped turtle tool.
+     * @param uuid The UUID returned by observe.
+     * @return Success or a failure reason.
+     * @throws LuaException If the UUID is invalid.
+     */
+    @LuaFunction
+    public final MethodResult attackEntity(String uuid) throws LuaException {
+        return entityCommand(uuid, TurtleEntityCommand.Action.ATTACK, false);
+    }
+
+    /**
+     * Right-click a visible entity with the selected item, including feeding and shearing.
+     * @param uuid The UUID returned by observe.
+     * @param sneak Whether to sneak during the interaction.
+     * @return Success or a failure reason.
+     * @throws LuaException If the UUID is invalid.
+     */
+    @LuaFunction
+    public final MethodResult useEntity(String uuid, Optional<Boolean> sneak) throws LuaException {
+        return entityCommand(uuid, TurtleEntityCommand.Action.USE, sneak.orElse(false));
+    }
+
+    /**
+     * Pick up a visible dropped item using normal player pickup hooks and ownership rules.
+     * @param uuid The UUID of the item entity.
+     * @return Success or a failure reason.
+     * @throws LuaException If the UUID is invalid.
+     */
+    @LuaFunction
+    public final MethodResult collectEntity(String uuid) throws LuaException {
+        return entityCommand(uuid, TurtleEntityCommand.Action.COLLECT, false);
+    }
+
+    /**
+     * Open a block's normal menu and read its non-player slots, then close it.
+     * @param x Right offset.
+     * @param y Up offset.
+     * @param z Forward offset.
+     * @param options Optional face and sneak settings.
+     * @return Success and a table with size and items, or false and a reason.
+     * @throws LuaException If arguments are invalid.
+     */
+    @LuaFunction
+    public final MethodResult inspectInventoryAt(double x, double y, double z, Optional<Map<?, ?>> options) throws LuaException {
+        return interactAt(x, y, z, TurtleInteractAtCommand.Action.LIST, options, 0, 0);
+    }
+
+    private MethodResult transferAt(double x, double y, double z, Optional<Integer> count, Optional<Integer> slot,
+                                   Optional<Map<?, ?>> options, TurtleInteractAtCommand.Action action) throws LuaException {
+        var quantity = count.orElse(64);
+        var targetSlot = slot.orElse(0);
+        if (quantity < 0 || quantity > 64) throw new LuaException("Count must be between 0 and 64");
+        if (slot.isPresent() && (targetSlot < 1 || targetSlot > 4096)) throw new LuaException("Slot must be between 1 and 4096");
+        return interactAt(x, y, z, action, options, quantity, targetSlot);
+    }
+
+    /**
+     * Insert selected items into a block's normal menu slots.
+     * @param x Right offset.
+     * @param y Up offset.
+     * @param z Forward offset.
+     * @param count Maximum count, default 64.
+     * @param slot One-based menu slot, or omitted for any slot.
+     * @param options Optional face and sneak settings.
+     * @return Success and transferred count, or false and a reason.
+     * @throws LuaException If arguments are invalid.
+     */
+    @LuaFunction
+    public final MethodResult pushItemsAt(double x, double y, double z, Optional<Integer> count, Optional<Integer> slot, Optional<Map<?, ?>> options) throws LuaException {
+        return transferAt(x, y, z, count, slot, options, TurtleInteractAtCommand.Action.PUSH);
+    }
+
+    /**
+     * Take items from a block's normal menu, respecting pickup and output-slot rules.
+     * @param x Right offset.
+     * @param y Up offset.
+     * @param z Forward offset.
+     * @param count Maximum count, default 64.
+     * @param slot One-based menu slot, or omitted for any slot.
+     * @param options Optional face and sneak settings.
+     * @return Success and transferred count, or false and a reason.
+     * @throws LuaException If arguments are invalid.
+     */
+    @LuaFunction
+    public final MethodResult pullItemsAt(double x, double y, double z, Optional<Integer> count, Optional<Integer> slot, Optional<Map<?, ?>> options) throws LuaException {
+        return transferAt(x, y, z, count, slot, options, TurtleInteractAtCommand.Action.PULL);
+    }
+
+    /**
+     * Start air-use of the selected item, holding for actual server ticks before releasing.
+     * Completion queues turtle_item_use with a reason and elapsed ticks. Other commands fail while active.
+     * @param ticks Duration from 1 to 1200 ticks.
+     * @param yaw Relative horizontal aim in degrees, default zero.
+     * @param pitch Vertical aim in degrees, positive downward, default zero.
+     * @param sneak Whether to sneak during use.
+     * @return Whether use started, or false and a reason.
+     * @throws LuaException If duration or angles are invalid.
+     */
+    @LuaFunction
+    public final MethodResult useItem(int ticks, Optional<Double> yaw, Optional<Double> pitch, Optional<Boolean> sneak) throws LuaException {
+        var horizontal = yaw.orElse(0.0);
+        var vertical = pitch.orElse(0.0);
+        if (ticks < 1 || ticks > 1200) throw new LuaException("Duration must be between 1 and 1200 ticks");
+        if (!Double.isFinite(horizontal) || Math.abs(horizontal) > 180 || !Double.isFinite(vertical) || Math.abs(vertical) > 90) throw new LuaException("Yaw must be -180 to 180 and pitch -90 to 90");
+        return trackCommand(new TurtleItemUseCommand(false, ticks, horizontal.floatValue(), vertical.floatValue(), sneak.orElse(false)));
+    }
+
+    /**
+     * Cancel held item use without firing the item's release action.
+     * @return Whether cancellation succeeded.
+     */
+    @LuaFunction
+    public final MethodResult cancelItemUse() {
+        return trackCommand(new TurtleItemUseCommand(true, 0, 0, 0, false));
+    }
+
+    /**
+     * Check whether an item is still being held, even if a completion event was lost.
+     * @return Whether use is active.
+     */
+    @LuaFunction(mainThread = true)
+    public final boolean isUsingItem() {
+        return turtle instanceof TurtleBrain brain && brain.itemUse.active();
     }
 
     private MethodResult trackCommand(TurtleCommand command) {

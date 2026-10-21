@@ -9,7 +9,7 @@ The purpose is to make programmable computers and turtles substantially more cap
 
 ## Status
 
-**Experimental compute, turtle and identity release.** Independent background Lua jobs are implemented through `compute` (also `require("cc.compute")`). Jobs use separate Lua states on a dedicated thread pool, support cancellation, and return copied results without blocking the owner. Turtles also support cached block vision with change notifications and diagonal targeted digging, placement and block use. Computer blocks, turtles and pockets have persistent UUIDs, UUID-addressed rednet and independent UUID storage. Computer and turtle terminal UIs are denser. Native acceleration and further player interactions remain planned. Numeric rednet remains compatible; internal computer files migrate to UUID directories.
+**Experimental compute, turtle and identity release.** Independent background Lua jobs are implemented through `compute` (also `require("cc.compute")`). Jobs use separate Lua states on a dedicated thread pool, support cancellation, and return copied results without blocking the owner. Turtles support block/entity vision, UUID-targeted entity interaction, diagonal block actions with face and sneak options, menu-based container transfers, and tick-driven held-item use. Computer blocks, turtles and pockets have persistent UUIDs, UUID-addressed rednet and independent UUID storage. Computer and turtle terminal UIs are denser. Native acceleration and custom mod GUI adapters remain planned. Numeric rednet remains compatible; internal computer files migrate to UUID directories.
 
 Read [the compute API and examples](doc/compute.md), or run `compute_demo` in CraftOS. See [turtle vision and targeted interaction examples](doc/turtle-vision.md) for `observe`, `digAt`, `placeAt` and `useAt`.
 
@@ -30,19 +30,19 @@ These Minecraft, loader, and CC versions were verified against the target server
 ./gradlew :forge:assemble :core:test :forge:test
 ```
 
-The `forge` project targets **NeoForge** on this Minecraft version. The distributable is `projects/forge/build/libs/cc-real-computing-edition-1.21.1-1.120.2-rce.0.5.0-SNAPSHOT.jar`; do not install the sources or API jars.
+The `forge` project targets **NeoForge** on this Minecraft version. The distributable is `projects/forge/build/libs/cc-real-computing-edition-1.21.1-1.120.2-rce.0.6.0-SNAPSHOT.jar`; do not install the sources or API jars.
 
 This is a replacement for CC: Tweaked, retaining the `computercraft` mod ID, existing block IDs and public API packages for compatibility. Install only one of the two mods. Test with a copy of your world and matching client/server builds before deployment; compatibility with the full pack is not yet certified.
 
 ## Validation
 
-On 2026-10-21, the UUID adoption milestone passed 1,632 core unit tests (13 skipped), 18 NeoForge unit tests, and all 117 required NeoForge game tests. One optional treasure-loot test failed. New coverage includes legacy disk migration, independent clone files, failed-copy retry, pocket transfer/copy/reload, UUID routing with identical numeric IDs, discovery through repeaters and isolation from legacy listeners. Java style, Lua lint and changelog checks passed. The existing double-chest game test has failed intermittently in earlier runs. Builds use Temurin JDK 25 and target Minecraft 1.21.1 / NeoForge 21.1.250. Visual inspection in a running client, full-pack gameplay and deployment to the Evolution server remain untested.
+On 2026-10-21, the entity/interaction milestone passed 1,632 core unit tests (13 skipped), 18 NeoForge unit tests, and 124 of 125 required NeoForge game tests in the final run. The remaining failure was the existing intermittent double-chest test; all 125 passed in the preceding run. One optional treasure-loot test also failed. Eight new game tests cover visible players/mobs/items, entity occlusion and change events, feeding/shearing/pickup, full inventories, attack/use protection, explicit faces/sneaking, locked/protected chest transfers, real-tick bow release, cancellation and consumable completion. Java style, Lua lint and changelog checks passed. Builds use Temurin JDK 25 and target Minecraft 1.21.1 / NeoForge 21.1.250. Visual UI inspection, full-pack gameplay and deployment to the Evolution server remain untested.
 
 ## Direction
 
 1. **Implemented:** independent compute jobs with isolated Lua state, copied inputs/results, cancellation, completion events and polling. CPU work runs independently of game ticks.
 2. Server-configurable CPU, memory and queue budgets with useful profiling. Expensive computation should remain responsive without manual yield calls throughout algorithms.
-3. **Implemented:** cached block vision, change notifications and diagonal digging, placement and block use with protection hooks. Next: explicit faces, sneaking, entity interactions and container operations.
+3. **Implemented:** block/entity vision, diagonal block actions, explicit faces, sneaking, entity interactions, container menu transfers and held-item use with protection hooks.
 4. **Implemented:** persistent UUIDs for computers, turtles and pockets, UUID rednet addressing/discovery, and independent clone storage. Existing numeric rednet remains compatible.
 5. Benchmark Java/Cobalt against native options such as LuaJIT or targeted C kernels before selecting a native backend. Native code must justify its compatibility, packaging and maintenance costs with measured improvements.
 

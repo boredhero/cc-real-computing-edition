@@ -68,6 +68,37 @@ public final class TurtleTarget {
         return view.clip(new ClipContext(Vec3.atCenterOf(turtle.getPosition()), end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, CollisionContext.empty()));
     }
 
+    public static @Nullable Vec3 visibleEntity(ITurtleAccess turtle, net.minecraft.world.entity.Entity entity, double reach) {
+        if (!entity.isAlive() || entity.isSpectator() || entity.isInvisible() || !turtle.getLevel().hasChunkAt(entity.blockPosition())) return null;
+        var origin = Vec3.atCenterOf(turtle.getPosition());
+        var bounds = entity.getBoundingBox();
+        var nearest = new Vec3(net.minecraft.util.Mth.clamp(origin.x, bounds.minX, bounds.maxX),
+            net.minecraft.util.Mth.clamp(origin.y, bounds.minY, bounds.maxY), net.minecraft.util.Mth.clamp(origin.z, bounds.minZ, bounds.maxZ));
+        var view = view(turtle);
+        for (int i = -2; i < Direction.values().length; i++) {
+            var end = i == -2 ? nearest : bounds.getCenter();
+            if (i >= 0) {
+                var direction = Direction.values()[i];
+                end = end.add(direction.getStepX() * bounds.getXsize() * 0.499,
+                    direction.getStepY() * bounds.getYsize() * 0.499, direction.getStepZ() * bounds.getZsize() * 0.499);
+            }
+            if (origin.distanceToSqr(end) <= reach * reach && ray(turtle, view, end).getType() == HitResult.Type.MISS) return end;
+        }
+        return null;
+    }
+
+    public static @Nullable BlockHitResult visibleFace(ITurtleAccess turtle, BlockGetter view, BlockPos pos, @Nullable Direction face) {
+        if (face == null) return visible(turtle, view, pos);
+        if (!turtle.getLevel().hasChunkAt(pos)) return null;
+        var shape = view.getBlockState(pos).getShape(view, pos);
+        if (shape.isEmpty()) return null;
+        var bounds = shape.bounds();
+        var end = bounds.getCenter().add(Vec3.atLowerCornerOf(pos)).add(face.getStepX() * bounds.getXsize() * 0.499,
+            face.getStepY() * bounds.getYsize() * 0.499, face.getStepZ() * bounds.getZsize() * 0.499);
+        var hit = ray(turtle, view, end);
+        return hit.getType() == HitResult.Type.BLOCK && hit.getBlockPos().equals(pos) && hit.getDirection() == face ? hit : null;
+    }
+
     public static @Nullable BlockHitResult visible(ITurtleAccess turtle, BlockGetter view, BlockPos pos) {
         if (!turtle.getLevel().isInWorldBounds(pos) || !turtle.getLevel().hasChunkAt(pos)) return null;
         // Sample the actual outline bounds, so short crops and slabs must really be visible.

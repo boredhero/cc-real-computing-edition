@@ -11,6 +11,7 @@ import dan200.computercraft.api.peripheral.IPeripheral;
 import dan200.computercraft.api.turtle.ITurtleUpgrade;
 import dan200.computercraft.api.turtle.TurtleAnimation;
 import dan200.computercraft.api.turtle.TurtleCommand;
+import dan200.computercraft.api.turtle.TurtleCommandResult;
 import dan200.computercraft.api.turtle.TurtleSide;
 import dan200.computercraft.api.upgrades.UpgradeData;
 import dan200.computercraft.core.computer.ComputerSide;
@@ -67,6 +68,8 @@ public class TurtleBrain implements TurtleAccessInternal {
 
     private final Container inventory = (InventoryDelegate) () -> owner;
 
+    public final TurtleItemUse itemUse = new TurtleItemUse(this);
+
     private final Queue<TurtleCommandQueueEntry> commandQueue = new ArrayDeque<>();
     private int commandsIssued = 0;
 
@@ -107,6 +110,8 @@ public class TurtleBrain implements TurtleAccessInternal {
     public void update() {
         var world = getLevel();
         if (!world.isClientSide) {
+            if (cachedPlayer != null) cachedPlayer.player().getCooldowns().tick();
+            itemUse.tick();
             // Advance movement
             updateCommands();
 
@@ -594,7 +599,8 @@ public class TurtleBrain implements TurtleAccessInternal {
 
         // Execute the command
         var start = System.nanoTime();
-        var result = nextCommand.command().execute(this);
+        var result = itemUse.active() && !(nextCommand.command() instanceof TurtleItemUseCommand use && use.cancel())
+            ? TurtleCommandResult.failure("Turtle is using an item; cancelItemUse first") : nextCommand.command().execute(this);
         var end = System.nanoTime();
 
         // Dispatch the callback

@@ -16,8 +16,10 @@ import net.neoforged.neoforge.common.util.FakePlayer;
 import org.jspecify.annotations.Nullable;
 
 import java.util.OptionalInt;
+import java.util.function.Consumer;
 
-class FakePlayerExt extends FakePlayer {
+class FakePlayerExt extends FakePlayer implements dan200.computercraft.shared.turtle.core.TurtleMenuAccess {
+    private boolean turtleMenusAllowed;
     private static final EntityDimensions DIMENSIONS = EntityDimensions.fixed(0, 0);
 
     FakePlayerExt(ServerLevel serverLevel, GameProfile profile) {
@@ -27,12 +29,25 @@ class FakePlayerExt extends FakePlayer {
 
     @Override
     public boolean canHarmPlayer(Player other) {
-        return true;
+        return super.canHarmPlayer(other);
     }
 
     @Override
     public OptionalInt openMenu(@Nullable MenuProvider menu) {
-        return OptionalInt.empty();
+        return openMenu(menu, (java.util.function.Consumer<net.minecraft.network.RegistryFriendlyByteBuf>) null);
+    }
+
+    @Override
+    public OptionalInt openMenu(@Nullable MenuProvider menu, @Nullable Consumer<net.minecraft.network.RegistryFriendlyByteBuf> extraData) {
+        if (!turtleMenusAllowed) return OptionalInt.empty();
+        var result = dan200.computercraft.shared.turtle.core.TurtleMenuAccess.open(this, menu);
+        if (result.isPresent()) net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.event.entity.player.PlayerContainerEvent.Open(this, containerMenu));
+        return result;
+    }
+
+    @Override
+    public void setTurtleMenusAllowed(boolean allowed) {
+        turtleMenusAllowed = allowed;
     }
 
     @Override

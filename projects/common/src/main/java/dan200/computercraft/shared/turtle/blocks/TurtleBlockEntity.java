@@ -93,7 +93,10 @@ public class TurtleBlockEntity extends AbstractComputerBlockEntity implements Ba
 
     @Override
     protected void unload() {
-        if (!hasMoved()) super.unload();
+        if (!hasMoved()) {
+            brain.itemUse.cancel();
+            super.unload();
+        }
     }
 
     @Override

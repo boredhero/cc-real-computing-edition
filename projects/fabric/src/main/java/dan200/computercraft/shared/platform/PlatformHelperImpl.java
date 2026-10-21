@@ -219,9 +219,10 @@ public class PlatformHelperImpl implements PlatformHelper {
 
     @Override
     public boolean interactWithEntity(ServerPlayer player, Entity entity, Vec3 hitPos) {
-        return UseEntityCallback.EVENT.invoker().interact(player, entity.level(), InteractionHand.MAIN_HAND, entity, new EntityHitResult(entity, hitPos)).consumesAction() ||
-            entity.interactAt(player, hitPos.subtract(entity.position()), InteractionHand.MAIN_HAND).consumesAction() ||
-            player.interactOn(entity, InteractionHand.MAIN_HAND).consumesAction();
+        var permission = UseEntityCallback.EVENT.invoker().interact(player, entity.level(), InteractionHand.MAIN_HAND, entity, new EntityHitResult(entity, hitPos));
+        if (permission != InteractionResult.PASS) return permission.consumesAction();
+        var result = entity.interactAt(player, hitPos.subtract(entity.position()), InteractionHand.MAIN_HAND);
+        return result != InteractionResult.PASS ? result.consumesAction() : player.interactOn(entity, InteractionHand.MAIN_HAND).consumesAction();
     }
 
     @Override

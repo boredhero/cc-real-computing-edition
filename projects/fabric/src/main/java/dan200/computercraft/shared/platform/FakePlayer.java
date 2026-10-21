@@ -12,7 +12,8 @@ import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.player.Player;
 
-final class FakePlayer extends net.fabricmc.fabric.api.entity.FakePlayer {
+final class FakePlayer extends net.fabricmc.fabric.api.entity.FakePlayer implements dan200.computercraft.shared.turtle.core.TurtleMenuAccess {
+    private boolean turtleMenusAllowed;
     private static final EntityDimensions DIMENSIONS = EntityDimensions.fixed(0, 0);
 
     FakePlayer(ServerLevel serverLevel, GameProfile gameProfile) {
@@ -22,7 +23,17 @@ final class FakePlayer extends net.fabricmc.fabric.api.entity.FakePlayer {
 
     @Override
     public boolean canHarmPlayer(Player other) {
-        return true;
+        return super.canHarmPlayer(other);
+    }
+
+    @Override
+    public void setTurtleMenusAllowed(boolean allowed) {
+        turtleMenusAllowed = allowed;
+    }
+
+    @Override
+    public java.util.OptionalInt openMenu(net.minecraft.world.@org.jspecify.annotations.Nullable MenuProvider menu) {
+        return turtleMenusAllowed ? dan200.computercraft.shared.turtle.core.TurtleMenuAccess.open(this, menu) : java.util.OptionalInt.empty();
     }
 
     @Override

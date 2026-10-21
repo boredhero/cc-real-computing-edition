@@ -9,6 +9,8 @@
     "mixins": [
         "DataFixersMixin",
         "LevelChunkMixin",
+        "EntityVisionMixin",
+        "LivingEntityUseAccess",
         "ItemStackComponentizationFixMixin",
         "V1460Mixin"
     ]

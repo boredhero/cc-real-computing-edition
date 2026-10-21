@@ -45,6 +45,7 @@ import net.minecraft.world.level.block.GameMasterBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 
 import java.util.function.Function;
@@ -145,6 +146,34 @@ public class TurtleTool extends AbstractTurtleUpgrade {
 
         return breakable == null || state.is(breakable) || isTriviallyBreakable(world, pos, state)
             ? TurtleCommandResult.success() : INEFFECTIVE;
+    }
+
+    /**
+     * Attack a visible entity with this equipped tool through normal attack hooks.
+     *
+     * @param turtle The acting turtle.
+     * @param side The equipped tool side.
+     * @param entity The already validated target.
+     * @param hit The visible hit location.
+     * @return Whether an attack occurred.
+     */
+    public TurtleCommandResult attackAt(ITurtleAccess turtle, TurtleSide side, Entity entity, Vec3 hit) {
+        var turtlePlayer = TurtlePlayer.get(turtle);
+        turtlePlayer.aimAt(turtle, hit);
+        var player = turtlePlayer.player();
+        var stack = getToolStack(turtle, side);
+        turtlePlayer.loadInventory(stack.copy());
+        DropConsumer.set(entity, TurtleUtil.dropConsumer(turtle));
+        try {
+            var permission = PlatformHelper.get().canAttackEntity(player, entity);
+            var attacked = permission.consumesAction() || (permission == InteractionResult.PASS && entity.isAttackable()
+                && !entity.skipAttackInteraction(player) && attack(player, Direction.getNearest(hit.x - player.getX(), 0, hit.z - player.getZ()), entity));
+            return attacked ? TurtleCommandResult.success() : TurtleCommandResult.failure("Attack denied or had no effect");
+        } finally {
+            TurtleUtil.stopConsuming(turtle);
+            setToolStack(turtle, side, stack, player.getMainHandItem());
+            player.getInventory().clearContent();
+        }
     }
 
     /**

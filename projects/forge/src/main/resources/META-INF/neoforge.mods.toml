@@ -21,7 +21,7 @@ authors="Daniel Ratcliffe, Aaron Mills, SquidDev"
 description='''
 An independent CC: Tweaked fork targeting more capable computation and turtle automation.
 Independent background Lua compute workers with message passing and configurable budgets.
-Cached turtle block vision with change events and diagonal targeted digging, placement and block use.
+Turtle block/entity vision, diagonal block actions, entity interactions, container menus and held-item charging.
 Persistent computer, turtle and pocket UUIDs with UUID rednet and independent clone storage.
 Denser computer/turtle terminal UIs.
 '''

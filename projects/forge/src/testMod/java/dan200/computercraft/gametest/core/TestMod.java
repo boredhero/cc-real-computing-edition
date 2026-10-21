@@ -32,10 +32,21 @@ public class TestMod {
         });
 
         bus.addListener((net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.RightClickBlock e) -> {
-            if (e.getLevel().getBlockState(e.getPos()).is(net.minecraft.world.level.block.Blocks.EMERALD_BLOCK)) {
+            if (e.getLevel().getBlockState(e.getPos()).is(net.minecraft.world.level.block.Blocks.EMERALD_BLOCK)
+                || (e.getLevel().getBlockEntity(e.getPos()) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity chest && chest.getName().getString().equals("rce_protected"))) {
                 e.setCanceled(true);
                 e.setCancellationResult(net.minecraft.world.InteractionResult.FAIL);
             }
+        });
+
+        bus.addListener((net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.EntityInteractSpecific e) -> {
+            if (e.getTarget().getTags().contains("rce_protected")) {
+                e.setCanceled(true);
+                e.setCancellationResult(net.minecraft.world.InteractionResult.FAIL);
+            }
+        });
+        bus.addListener((net.neoforged.neoforge.event.entity.player.AttackEntityEvent e) -> {
+            if (e.getTarget().getTags().contains("rce_protected")) e.setCanceled(true);
         });
 
         if (FMLEnvironment.dist == Dist.CLIENT) TestMod.onInitializeClient();
@@ -44,6 +55,7 @@ public class TestMod {
             TestHooks.loadTests(event::register);
             event.register(TargetedProtectionTest.class);
             event.register(IdentityTest.class);
+            event.register(TurtleInteractionsTest.class);
         });
     }
 
