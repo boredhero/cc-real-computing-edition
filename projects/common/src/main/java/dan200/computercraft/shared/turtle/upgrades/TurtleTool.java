@@ -43,6 +43,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.GameMasterBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import org.jspecify.annotations.Nullable;
 
@@ -120,12 +121,12 @@ public class TurtleTool extends AbstractTurtleUpgrade {
 
         turtlePlayer.loadInventory(stack.copy());
 
-        var result = action.apply(turtlePlayer);
-
-        setToolStack(turtle, side, stack, turtlePlayer.player().getItemInHand(InteractionHand.MAIN_HAND));
-        turtlePlayer.player().getInventory().clearContent();
-
-        return result;
+        try {
+            return action.apply(turtlePlayer);
+        } finally {
+            setToolStack(turtle, side, stack, turtlePlayer.player().getItemInHand(InteractionHand.MAIN_HAND));
+            turtlePlayer.player().getInventory().clearContent();
+        }
     }
 
     @Override
@@ -261,6 +262,32 @@ public class TurtleTool extends AbstractTurtleUpgrade {
         }
 
         return true;
+    }
+
+    /**
+     * Break an explicitly targeted block using the equipped tool and normal protection hooks.
+     *
+     * @param turtle The turtle.
+     * @param side The equipped tool's side.
+     * @param hit The validated visible block.
+     * @return The command result.
+     */
+    public TurtleCommandResult digAt(ITurtleAccess turtle, TurtleSide side, BlockHitResult hit) {
+        var level = (ServerLevel) turtle.getLevel();
+        var pos = hit.getBlockPos();
+        return withEquippedItem(turtle, side, turtle.getDirection(), player -> {
+            player.aimAt(turtle, hit.getLocation());
+            if (level.isEmptyBlock(pos) || WorldUtil.isLiquidBlock(level, pos)) return TurtleCommandResult.failure("Nothing to dig here");
+            var breakable = checkBlockBreakable(level, pos, player);
+            if (!breakable.isSuccess()) return breakable;
+            if (player.isBlockProtected(level, pos)) return TurtleCommandResult.failure("Cannot break protected block");
+            DropConsumer.set(level, pos, TurtleUtil.dropConsumer(turtle));
+            try {
+                return player.player().gameMode.destroyBlock(pos) ? TurtleCommandResult.success() : TurtleCommandResult.failure("Cannot break protected block");
+            } finally {
+                TurtleUtil.stopConsuming(turtle);
+            }
+        });
     }
 
     private TurtleCommandResult dig(ITurtleAccess turtle, TurtleSide side, Direction direction) {

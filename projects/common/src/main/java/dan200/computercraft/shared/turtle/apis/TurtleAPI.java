@@ -73,15 +73,109 @@ import java.util.Optional;
 public class TurtleAPI implements ILuaAPI {
     private final MetricsObserver metrics;
     private final TurtleAccessInternal turtle;
+    private final TurtleVision vision;
 
     public TurtleAPI(MetricsObserver metrics, TurtleAccessInternal turtle) {
         this.metrics = metrics;
         this.turtle = turtle;
+        vision = new TurtleVision(turtle);
     }
 
     @Override
     public String[] getNames() {
         return new String[]{ "turtle" };
+    }
+
+    @Override
+    public void shutdown() {
+        vision.reset();
+    }
+
+    @Override
+    public void update() {
+        vision.update(revision -> {
+            if (turtle instanceof TurtleBrain brain) {
+                var computer = brain.getOwner().getServerComputer();
+                if (computer != null) computer.queueEvent("turtle_vision", new Object[]{ revision });
+            }
+        });
+    }
+
+    /**
+     * Observe visible blocks and subscribe to coalesced turtle_vision invalidation events.
+     * Coordinates are right/up/forward. No chunks are loaded by this operation.
+     *
+     * @param radius Integer observation radius, from 1 to 8.
+     * @return A snapshot with blocks, radius, facing and revision fields.
+     * @throws LuaException If the radius is invalid.
+     */
+    @LuaFunction(mainThread = true)
+    public final Map<String, Object> observe(double radius) throws LuaException {
+        if (!Double.isFinite(radius) || radius != Math.floor(radius) || radius < 1 || radius > TurtleVision.MAX_RADIUS) throw new LuaException("Radius must be an integer from 1 to 8");
+        if (turtle.isRemoved()) throw new LuaException("Turtle has been removed");
+        return vision.observe((int) radius);
+    }
+
+    /**
+     * Stop vision notifications and discard the cached observation.
+     *
+     * @return The command result.
+     */
+    @LuaFunction
+    public final MethodResult unobserve() {
+        return turtle.executeCommand(access -> {
+            vision.reset();
+            return TurtleCommandResult.success();
+        });
+    }
+
+    private MethodResult interactAt(double x, double y, double z, TurtleInteractAtCommand.Action action) throws LuaException {
+        for (var value : new double[]{ x, y, z }) {
+            if (!Double.isFinite(value) || value != Math.floor(value) || Math.abs(value) > TurtleTarget.REACH) throw new LuaException("Coordinates must be integers within reach (4.5 blocks)");
+        }
+        return trackCommand(new TurtleInteractAtCommand((int) x, (int) y, (int) z, action));
+    }
+
+    /**
+     * Dig a visible block within 4.5 blocks, including diagonals, using an equipped tool.
+     *
+     * @param x Right offset.
+     * @param y Up offset.
+     * @param z Forward offset.
+     * @return Success, or false and a reason.
+     * @throws LuaException If coordinates are invalid.
+     */
+    @LuaFunction
+    public final MethodResult digAt(double x, double y, double z) throws LuaException {
+        return interactAt(x, y, z, TurtleInteractAtCommand.Action.DIG);
+    }
+
+    /**
+     * Place the selected block into a specific visible cell within reach.
+     *
+     * @param x Right offset.
+     * @param y Up offset.
+     * @param z Forward offset.
+     * @return Success, or false and a reason.
+     * @throws LuaException If coordinates are invalid.
+     */
+    @LuaFunction
+    public final MethodResult placeAt(double x, double y, double z) throws LuaException {
+        return interactAt(x, y, z, TurtleInteractAtCommand.Action.PLACE);
+    }
+
+    /**
+     * Right-click a visible block using the selected item (or an empty hand).
+     *
+     * @param x Right offset.
+     * @param y Up offset.
+     * @param z Forward offset.
+     * @return Success, or false and a reason.
+     * @throws LuaException If coordinates are invalid.
+     */
+    @LuaFunction
+    public final MethodResult useAt(double x, double y, double z) throws LuaException {
+        return interactAt(x, y, z, TurtleInteractAtCommand.Action.USE);
     }
 
     private MethodResult trackCommand(TurtleCommand command) {

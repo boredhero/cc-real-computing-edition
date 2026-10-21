@@ -7,7 +7,7 @@ SPDX-License-Identifier: MPL-2.0 -->
 
 Make ComputerCraft suitable for substantial autonomous systems: concurrent planning, persistent services, fleet coordination, simulation, and rich interaction with modded Minecraft.
 
-The background-compute milestone is implemented as an experimental Cobalt worker pool; see [the actual API](compute.md). Native acceleration and turtle capabilities below remain planned. Target Minecraft 1.21.1 and NeoForge 21.1.250 first, preserving compatibility with CC: Tweaked 1.120.2 programs and peripherals.
+The background-compute milestone is implemented as an experimental Cobalt worker pool; see [the actual API](compute.md). Block vision with invalidation events and targeted diagonal block interactions are also implemented; see [the turtle API contract](turtle-vision.md). Native acceleration and further turtle capabilities below remain planned. Target Minecraft 1.21.1 and NeoForge 21.1.250 first, preserving compatibility with CC: Tweaked 1.120.2 programs and peripherals.
 
 ## What upstream already does
 
@@ -38,6 +38,14 @@ Start by measuring Cobalt on the real workload. Compare an isolated Cobalt worke
 Targeted native kernels (for example path search on compact occupancy data) may provide a smaller first step than replacing all Lua execution. A native backend should remain optional until it demonstrates a material end-to-end improvement and has a defined failure model. Do not expose arbitrary native library loading to in-game programs.
 
 ## Turtle capability expansion
+
+Implemented: `observe(radius)`, `unobserve()`, `turtle_vision` invalidation events,
+`digAt(x,y,z)`, `placeAt(x,y,z)` and `useAt(x,y,z)`. Cached block observations are
+invalidated by block mutations, pose changes and chunk availability. Interactions
+use real-position ray checks and existing owner/protection hooks. Entity vision,
+explicit faces, incremental snapshot diffs and the additional interactions below
+remain future work.
+
 
 Build on `TurtlePlayer` and existing `TurtlePlaceCommand` interaction paths. Existing place operations already invoke some item/block/entity interactions; audit their limits before duplicating them.
 

@@ -28,12 +28,22 @@ public class TestMod {
         bus.addListener(EventPriority.LOW, (ServerStartedEvent e) -> TestHooks.onServerStarted(e.getServer()));
         bus.addListener((RegisterCommandsEvent e) -> CCTestCommand.register(e.getDispatcher(), e.getBuildContext()));
         bus.addListener((BlockEvent.BreakEvent e) -> {
-            if (TestHooks.onBeforeDestroyBlock(e.getLevel(), e.getPos(), e.getState())) e.setCanceled(true);
+            if (e.getState().is(net.minecraft.world.level.block.Blocks.EMERALD_BLOCK) || TestHooks.onBeforeDestroyBlock(e.getLevel(), e.getPos(), e.getState())) e.setCanceled(true);
+        });
+
+        bus.addListener((net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.RightClickBlock e) -> {
+            if (e.getLevel().getBlockState(e.getPos()).is(net.minecraft.world.level.block.Blocks.EMERALD_BLOCK)) {
+                e.setCanceled(true);
+                e.setCancellationResult(net.minecraft.world.InteractionResult.FAIL);
+            }
         });
 
         if (FMLEnvironment.dist == Dist.CLIENT) TestMod.onInitializeClient();
 
-        modBus.addListener((RegisterGameTestsEvent event) -> TestHooks.loadTests(event::register));
+        modBus.addListener((RegisterGameTestsEvent event) -> {
+            TestHooks.loadTests(event::register);
+            event.register(TargetedProtectionTest.class);
+        });
     }
 
     private static void onInitializeClient() {

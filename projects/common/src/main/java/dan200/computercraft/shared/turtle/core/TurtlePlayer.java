@@ -132,6 +132,21 @@ public final class TurtlePlayer {
         player.yHeadRotO = player.yHeadRot = player.yRotO = player.getYRot();
     }
 
+    /**
+     * Aim from the turtle's centre with player-like reach, without moving closer to the target.
+     *
+     * @param turtle The turtle.
+     * @param target The hit location.
+     */
+    public void aimAt(ITurtleAccess turtle, net.minecraft.world.phys.Vec3 target) {
+        var origin = net.minecraft.world.phys.Vec3.atCenterOf(turtle.getPosition());
+        var delta = target.subtract(origin);
+        player.setPos(origin.x, origin.y - player.getEyeHeight(), origin.z);
+        setRotation((float) Math.toDegrees(Math.atan2(-delta.x, delta.z)),
+            (float) -Math.toDegrees(Math.atan2(delta.y, Math.sqrt(delta.x * delta.x + delta.z * delta.z))));
+        trySetAttribute(Attributes.BLOCK_INTERACTION_RANGE, TurtleTarget.REACH);
+    }
+
     public void loadInventory(ItemStack stack) {
         player.getInventory().clearContent();
         player.getInventory().selected = 0;

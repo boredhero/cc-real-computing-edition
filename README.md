@@ -9,9 +9,9 @@ The purpose is to make programmable computers and turtles substantially more cap
 
 ## Status
 
-**Experimental compute-worker release.** Independent background Lua jobs are implemented through `compute` (also `require("cc.compute")`). Jobs use separate Lua states on a dedicated thread pool, support cancellation, and return copied results without blocking the owner. Native acceleration and expanded turtle interaction/vision APIs remain planned. Existing programs keep upstream behavior unless they use the new API.
+**Experimental compute and turtle release.** Independent background Lua jobs are implemented through `compute` (also `require("cc.compute")`). Jobs use separate Lua states on a dedicated thread pool, support cancellation, and return copied results without blocking the owner. Turtles also support cached block vision with change notifications and diagonal targeted digging, placement and block use. Native acceleration and further player interactions remain planned. Existing programs keep upstream behavior unless they use the new API.
 
-Read [the compute API and examples](doc/compute.md), or run `compute_demo` in CraftOS.
+Read [the compute API and examples](doc/compute.md), or run `compute_demo` in CraftOS. See [turtle vision and targeted interaction examples](doc/turtle-vision.md) for `observe`, `digAt`, `placeAt` and `useAt`.
 
 ## Target
 
@@ -30,19 +30,19 @@ These Minecraft, loader, and CC versions were verified against the target server
 ./gradlew :forge:assemble :core:test :forge:test
 ```
 
-The `forge` project targets **NeoForge** on this Minecraft version. The distributable is `projects/forge/build/libs/cc-real-computing-edition-1.21.1-1.120.2-rce.0.2.0-SNAPSHOT.jar`; do not install the sources or API jars.
+The `forge` project targets **NeoForge** on this Minecraft version. The distributable is `projects/forge/build/libs/cc-real-computing-edition-1.21.1-1.120.2-rce.0.3.0-SNAPSHOT.jar`; do not install the sources or API jars.
 
 This is a replacement for CC: Tweaked, retaining the `computercraft` mod ID, existing block IDs and public API packages for compatibility. Install only one of the two mods. Test with a copy of your world and matching client/server builds before deployment; compatibility with the full pack is not yet certified.
 
 ## Validation
 
-On 2026-10-21, the compute-worker build, Java style checks and changelog check completed successfully on Linux with Temurin JDK 25. Full unit suites: core 1,627 passed and 13 skipped; NeoForge 10 passed. Tests include concurrency, time-slicing beyond seven seconds, cancellation, boot isolation, bounded transfers, owner responsiveness and the bundled demo. The loader tests use ModDevGradle's FML-aware JUnit integration for NeoForge 21.1.250. Full-pack gameplay and dedicated-server deployment have not been tested.
+On 2026-10-21, the compute-worker build, Java style checks and changelog check completed successfully on Linux with Temurin JDK 25. Full unit suites: core 1,627 passed and 13 skipped; NeoForge 10 passed. Tests include concurrency, time-slicing beyond seven seconds, cancellation, boot isolation, bounded transfers, owner responsiveness and the bundled demo. The loader tests use ModDevGradle's FML-aware JUnit integration for NeoForge 21.1.250. The new NeoForge game tests passed for diagonal harvesting/replanting, visibility/cache invalidation and cancelled protection events. Full game-suite runs also exposed an intermittent failure in the existing double-chest inventory test (some runs passed all 114 required tests) and an optional treasure-loot failure. Full-pack gameplay and deployment to the Evolution server have not been tested.
 
 ## Direction
 
 1. **Implemented:** independent compute jobs with isolated Lua state, copied inputs/results, cancellation, completion events and polling. CPU work runs independently of game ticks.
 2. Server-configurable CPU, memory and queue budgets with useful profiling. Expensive computation should remain responsive without manual yield calls throughout algorithms.
-3. Rich player-style turtle interactions: diagonal reach and harvesting, explicit target faces, held-item use, sneaking, entity interactions, container operations, and built-in vision of nearby visible blocks with incremental updates. Preserve normal server interaction hooks and item accounting.
+3. **Implemented:** cached block vision, change notifications and diagonal digging, placement and block use with protection hooks. Next: explicit faces, sneaking, entity interactions and container operations.
 4. Stable UUID-based device identity with readable names and numeric-ID compatibility.
 5. Benchmark Java/Cobalt against native options such as LuaJIT or targeted C kernels before selecting a native backend. Native code must justify its compatibility, packaging and maintenance costs with measured improvements.
 

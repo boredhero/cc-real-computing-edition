@@ -60,6 +60,59 @@ import kotlin.time.Duration.Companion.milliseconds
 
 class Turtle_Test {
     @GameTest
+    fun Targeted_farming(helper: GameTestHelper) = helper.sequence {
+        thenOnComputer {
+            val observed = context.executeMainThreadTask { arrayOf(turtle.observe(4.0)) }.await()!![0] as Map<*, *>
+            val blocks = observed["blocks"] as List<*>
+            assertTrue(blocks.any { (it as Map<*, *>)["name"] == "minecraft:wheat" && it["x"] == 1 && it["z"] == 1 })
+            turtle.digAt(1.0, 0.0, 1.0).await().assertArrayEquals(true)
+            turtle.placeAt(1.0, 0.0, 1.0).await().assertArrayEquals(true)
+            turtle.select(16).await().assertArrayEquals(true)
+            turtle.useAt(-1.0, 0.0, 1.0).await().assertArrayEquals(true)
+            assertEquals(false, turtle.digAt(4.0, 0.0, 4.0).await()!![0], "Reject out-of-range diagonal")
+            assertThrows(dan200.computercraft.api.lua.LuaException::class.java) { turtle.digAt(0.5, 0.0, 1.0) }
+            turtle.unobserve().await().assertArrayEquals(true)
+        }
+        thenExecute {
+            helper.assertBlockPresent(Blocks.WHEAT, BlockPos(3, 3, 5))
+            assertEquals(0, helper.getBlockState(BlockPos(3, 3, 5)).getValue(BlockStateProperties.AGE_7))
+            assertTrue(helper.getBlockState(BlockPos(5, 3, 5)).getValue(BlockStateProperties.POWERED))
+        }
+    }
+
+    @GameTest
+    fun Vision_changes_and_occlusion(helper: GameTestHelper) = helper.sequence {
+        thenExecute {
+            val access = helper.getBlockEntity(BlockPos(4, 3, 4), ModRegistry.BlockEntities.TURTLE_NORMAL.get()).access as dan200.computercraft.shared.turtle.core.TurtleAccessInternal
+            val vision = dan200.computercraft.shared.turtle.core.TurtleVision(access)
+            val first = vision.observe(4)
+            assertSame(first, vision.observe(4), "Unchanged observations are cached")
+            var events = 0
+            vision.update { events++ }
+            assertEquals(0, events)
+            helper.setBlock(BlockPos(4, 3, 5), Blocks.STONE)
+            helper.setBlock(BlockPos(4, 3, 6), Blocks.DIAMOND_BLOCK)
+            vision.update { events++ }
+            vision.update { events++ }
+            assertEquals(1, events, "Block mutations coalesce until observed")
+            val blocked = vision.observe(4)
+            assertTrue((blocked["blocks"] as List<*>).none { (it as Map<*, *>)["name"] == "minecraft:diamond_block" })
+            assertFalse(dan200.computercraft.shared.turtle.core.TurtleInteractAtCommand(0, 0, 2, dan200.computercraft.shared.turtle.core.TurtleInteractAtCommand.Action.DIG).execute(access).isSuccess)
+            helper.setBlock(BlockPos(4, 3, 5), Blocks.AIR)
+            vision.update { events++ }
+            assertEquals(2, events)
+            assertTrue((vision.observe(4)["blocks"] as List<*>).any { (it as Map<*, *>)["name"] == "minecraft:diamond_block" })
+            access.direction = access.direction.clockWise
+            vision.update { events++ }
+            assertEquals(3, events, "Turning invalidates relative coordinates")
+            vision.reset()
+            helper.setBlock(BlockPos(4, 3, 5), Blocks.STONE)
+            vision.update { events++ }
+            assertEquals(3, events, "Unsubscribe stops notifications")
+        }
+    }
+
+    @GameTest
     fun Unequip_refreshes_peripheral(helper: GameTestHelper) = helper.sequence {
         thenOnComputer {
             getApi<PeripheralAPI>().getType("right").assertArrayEquals("modem", message = "Starts with a modem")
