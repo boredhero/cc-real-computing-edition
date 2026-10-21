@@ -8,6 +8,8 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 @WithMinecraft
@@ -25,6 +27,19 @@ class ComputerIdentitiesTest {
         assertNotEquals(original, restored.claim(original, "overworld:four"));
         restored.release(original, "nether:three");
         assertEquals(original, restored.claim(original, "overworld:five"));
+    }
+
+    @Test
+    void persistsCloneSourcesAfterClaimsAreReleased() {
+        var identities = new ComputerIdentities();
+        var original = identities.claim(null, "one");
+        var copy = identities.claim(original, "two");
+        var pocket = identities.copy(copy, "pocket");
+        identities.release(original, "one");
+        var restored = ComputerIdentities.load(identities.save(new CompoundTag(), RegistryAccess.EMPTY), RegistryAccess.EMPTY);
+        assertEquals(List.of(copy, original), restored.storageSources(pocket));
+        assertEquals(pocket, restored.claim(pocket, "pocket"));
+        assertNotEquals(pocket, restored.claim(pocket, "block"));
     }
 
     @Test

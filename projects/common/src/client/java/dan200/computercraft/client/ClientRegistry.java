@@ -5,7 +5,7 @@
 package dan200.computercraft.client;
 
 import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import dan200.computercraft.api.ComputerCraftAPI;
@@ -230,8 +230,8 @@ public final class ClientRegistry {
     public static <T> void registerClientCommands(CommandDispatcher<T> dispatcher, BiConsumer<T, Component> sendError) {
         dispatcher.register(LiteralArgumentBuilder.<T>literal(CommandComputerCraft.CLIENT_OPEN_FOLDER)
             .requires(x -> Minecraft.getInstance().getSingleplayerServer() != null)
-            .then(RequiredArgumentBuilder.<T, Integer>argument("computer_id", IntegerArgumentType.integer(0))
-                .executes(c -> handleOpenComputerCommand(c.getSource(), sendError, c.getArgument("computer_id", Integer.class)))
+            .then(RequiredArgumentBuilder.<T, String>argument("computer_id", StringArgumentType.word())
+                .executes(c -> handleOpenComputerCommand(c.getSource(), sendError, c.getArgument("computer_id", String.class)))
             ));
     }
 
@@ -244,14 +244,21 @@ public final class ClientRegistry {
      * @param <T>       The type of the client-side command context.
      * @return {@code 1} if a folder was opened, {@code 0} otherwise.
      */
-    private static <T> int handleOpenComputerCommand(T context, BiConsumer<T, Component> sendError, int id) {
+    private static <T> int handleOpenComputerCommand(T context, BiConsumer<T, Component> sendError, String id) {
         var server = Minecraft.getInstance().getSingleplayerServer();
         if (server == null) {
             sendError.accept(context, Component.literal("Not on a single-player server"));
             return 0;
         }
 
-        var file = new File(ServerContext.get(server).storageDir().toFile(), "computer/" + id);
+        String path;
+        try {
+            path = id.matches("[0-9]+") ? Integer.toString(Integer.parseInt(id)) : "uuid/" + java.util.UUID.fromString(id);
+        } catch (IllegalArgumentException e) {
+            sendError.accept(context, Component.literal("Invalid computer ID or UUID"));
+            return 0;
+        }
+        var file = new File(ServerContext.get(server).storageDir().toFile(), "computer/" + path);
         if (!file.isDirectory()) {
             sendError.accept(context, Component.literal("Computer's folder does not exist"));
             return 0;

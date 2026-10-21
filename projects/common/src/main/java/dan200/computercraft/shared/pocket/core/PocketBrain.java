@@ -59,7 +59,7 @@ public final class PocketBrain implements IPocketAccess {
         return computer;
     }
 
-    PocketHolder holder() {
+    public PocketHolder holder() {
         return holder;
     }
 

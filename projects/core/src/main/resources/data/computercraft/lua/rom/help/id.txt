@@ -4,4 +4,4 @@ ex:
 "id" will print this Computers ID and label
 "id left" will print the ID and label of the disk in the Disk Drive on the left
 
-Computer blocks and turtles also show a persistent UUID. Programs can read it with os.getComputerUUID(). Numeric IDs remain compatible.
+Computer blocks, turtles and pockets also show a persistent UUID. Programs can read it with os.getComputerUUID(). Numeric IDs remain compatible.

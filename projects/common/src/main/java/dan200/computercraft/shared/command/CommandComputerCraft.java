@@ -352,7 +352,7 @@ public final class CommandComputerCraft {
         }
 
         if (isPlayer(source) && UserLevel.isOwner(source)) {
-            var linkPath = linkStorage(source, computerId);
+            var linkPath = linkStorage(source, computer, computerId);
             if (linkPath != null) out.append(" ").append(linkPath);
         }
 
@@ -371,13 +371,16 @@ public final class CommandComputerCraft {
         }
     }
 
-    private static @Nullable Component linkStorage(CommandSourceStack source, int id) {
-        var file = new File(ServerContext.get(source.getServer()).storageDir().toFile(), "computer/" + id);
+    private static @Nullable Component linkStorage(CommandSourceStack source, @Nullable ServerComputer computer, int id) {
+        if (computer == null) return null;
+        var identity = computer.getComputerUUID();
+        var path = identity == null ? Integer.toString(id) : "uuid/" + identity;
+        var file = new File(ServerContext.get(source.getServer()).storageDir().toFile(), "computer/" + path);
         if (!file.isDirectory()) return null;
 
         return clientLink(
             text("\u270E"),
-            "/" + CLIENT_OPEN_FOLDER + " " + id,
+            "/" + CLIENT_OPEN_FOLDER + " " + (identity == null ? id : identity),
             Component.translatable("commands.computercraft.dump.open_path")
         );
     }

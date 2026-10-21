@@ -1,10 +1,10 @@
 # Persistent identity and denser terminal UIs
 
-Available in `1.120.2-rce.0.4.0-SNAPSHOT` for Minecraft 1.21.1 / NeoForge.
+Available in `1.120.2-rce.0.5.0-SNAPSHOT` for Minecraft 1.21.1 / NeoForge.
 
 ## Device UUIDs
 
-Computer blocks (normal, advanced and command computers) and turtles now have
+Computer blocks (normal, advanced and command computers), turtles and pocket computers have
 persistent UUID identities. They are separate from CC's existing runtime instance
 UUID, which changes when a server computer is recreated.
 
@@ -18,12 +18,12 @@ print(peripheral.call("left", "getUUID"))
 ```
 
 The `id` program displays both IDs. The peripheral method also works when the
-other computer is powered off. Hosts without persistent block identities,
-including pocket computers and standalone core embeddings, return nil from
-`os.getComputerUUID()` in this release. Pocket UUID support is still future work.
+other computer is powered off. Standalone core embeddings without an assigned
+persistent identity still return nil. Pocket identity is stored in the item
+component and survives transfer, upgrades and save/reload.
 
 Legacy blocks are assigned a random UUID when first ticked or accessed. Their
-numeric ID, label, programs and disk directory are preserved. The UUID is saved
+numeric ID, label and programs are preserved; storage migrates as described below. The UUID is saved
 in block NBT (`ComputerUUID`) and the `computercraft:computer_uuid` item component.
 Breaking/picking up the device and placing it elsewhere preserves it. Turtle
 movement, including dimension changes through the normal turtle movement path,
@@ -38,12 +38,74 @@ chunk unload and server shutdown do not. If identical items exist while no block
 claims their UUID, the first placed/accessed copy claims it and later copies are
 assigned fresh UUIDs.
 
-**Storage and networking compatibility:** numeric IDs still select the existing
-`computercraft/computer/<id>` directory and rednet/modem naming still uses numeric
-IDs. As with upstream, copying a device's numeric ID can share its existing disk
-storage. Assigning a fresh UUID to a clone does not duplicate that disk or change
-its numeric alias. UUID-based storage and addressing are not implemented here.
-UUIDs identify devices; they are not authentication credentials.
+### Pocket copies
+
+Pockets claim an identity when first ticked in a player's inventory or accessed.
+A copied item carrying the same UUID or runtime reference as an active pocket gets
+a fresh UUID and independent running computer. Moving the original to another
+slot, player, item entity or lectern preserves its identity and running state.
+Copies of pockets must be activated while the original is active to be recognised
+as separate devices. Byte-identical items hidden in unloaded inventories cannot
+be distinguished from a moved original: until both are active, they can still
+refer to the same UUID and files. Whole-world copies likewise preserve identities.
+
+## UUID storage and migration
+
+The internal filesystem now uses `computercraft/computer/uuid/<uuid>/`. On first
+boot, an existing device copies its old `computercraft/computer/<numeric-id>/`
+files into this directory. The legacy directory is retained untouched and is
+never used again once that UUID directory exists. Numeric IDs and labels remain
+available for compatibility, but no longer select the internal disk for devices
+with UUIDs. Removable floppy disks retain their existing disk IDs and directories.
+
+When a placed clone or active pocket copy receives a fresh UUID, its first boot
+copies the source UUID's files, then all writes and deletes are independent.
+If the source has not booted yet, migration follows its recorded clone ancestry,
+falling back to the legacy numeric directory. Copies made before this release,
+which already have distinct UUIDs but no recorded source, each migrate from their
+legacy directory. Copying is ordinary file copying, not a live shared mount.
+The snapshot is taken at first boot, not item duplication time; stop the source
+computer first if a consistent snapshot of actively changing files is required.
+
+Migration uses a temporary sibling directory and an atomic rename. A failed copy
+is never mounted as a completed migration and may be retried; existing UUID
+files are never overwritten. Non-regular files (including symlinks) are rejected.
+A failed cleanup can leave a `.migrate-*` directory, which is never mounted.
+Migration needs enough disk space for an independent copy. Backups and external
+server tooling must include/use the new UUID directories. Downgrading does not
+copy current UUID files back into the retained legacy directories.
+
+The single-player computer-folder link now opens UUID storage. Its explicit
+command accepts either a UUID or a numeric ID; numeric IDs open legacy folders.
+Raw modem channels and wired peripheral names retain upstream numeric semantics.
+
+## UUID networking
+
+```lua
+rednet.open("back")
+print(os.getComputerUUID())
+rednet.host("fleet", "harvester") -- same registration for both discovery APIs
+local target = rednet.lookupUUID("fleet", "harvester")
+if target then rednet.send(target, { command = "harvest" }, "fleet") end
+local sender, message, protocol = rednet.receive("fleet")
+rednet.send(sender, { ok = true }, protocol)
+rednet.broadcastUUID({ status = "ready" }, "fleet")
+```
+
+`rednet.send` accepts a numeric ID or a canonical UUID string (case-insensitive).
+UUID-targeted traffic returns the sender UUID from `rednet.receive` and
+`rednet_message`; numeric traffic still returns numeric IDs. Programs consuming
+both types should handle both. `rednet.lookupUUID(protocol, hostname?, timeout?)`
+returns UUIDs using the same conventions as `lookup`. `broadcastUUID` broadcasts
+with UUID senders; `broadcast` and `lookup` retain numeric behavior.
+
+UUID messaging uses `rednet.CHANNEL_UUID` (65532), opened alongside normal rednet
+channels, with full destination UUID filtering. Computers sharing a numeric ID
+can exchange UUID messages without being mistaken for each other. Older listeners
+do not receive UUID traffic. Repeaters must run this release's `repeat` program;
+older repeaters do not understand the UUID channel. Modem range, dimensions and
+network connectivity still apply. UUIDs are addresses, not authentication:
+messages can still be intercepted or spoofed.
 
 Back up the identity saved-data file along with chunks, inventories and computer
 directories. Restoring an entire world restores its identities. A separate copy
@@ -78,7 +140,10 @@ not a new graphics API.
 
 ## Validation
 
-Tests cover migration without changing the numeric ID, UUID persistence in NBT
+Tests cover legacy file migration, independent clone writes/deletes, failed-copy
+retry, saved source ancestry, pocket transfer/copy/reload, UUID routing with
+identical numeric IDs, discovery through repeaters, and legacy listener isolation.
+They also cover migration without changing the numeric ID, UUID persistence in NBT
 and dropped item components, replacement after pickup, distinct IDs for placed
 copies, saved registry collision checks, movement, and Lua/peripheral UUID access.
 A terminal widget test verifies that scaled mouse events reach the correct first

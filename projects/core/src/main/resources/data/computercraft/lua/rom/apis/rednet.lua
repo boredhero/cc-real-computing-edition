@@ -55,6 +55,18 @@ CHANNEL_BROADCAST = 65535
 --- The channel used by the Rednet API to repeat messages.
 CHANNEL_REPEAT = 65533
 
+--- The channel for UUID-addressed messages. Numeric rednet traffic remains compatible.
+CHANNEL_UUID = 65532
+
+local function computer_uuid()
+    return os.getComputerUUID and os.getComputerUUID()
+end
+
+local function valid_uuid(value)
+    return type(value) == "string" and #value == 36
+        and value:match("^%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x$") ~= nil
+end
+
 --- The number of channels rednet reserves for computer IDs. Computers with IDs
 -- greater or equal to this limit wrap around to 0.
 MAX_ID_CHANNELS = 65500
@@ -70,9 +82,10 @@ end
 --[[- Opens a modem with the given [`peripheral`] name, allowing it to send and
 receive messages over rednet.
 
-This will open the modem on two channels: one which has the same
+This will open the modem on the numeric and broadcast channels: one which has the same
 [ID][`os.getComputerID`] as the computer, and another on
-[the broadcast channel][`CHANNEL_BROADCAST`].
+[the broadcast channel][`CHANNEL_BROADCAST`]. Devices with persistent UUIDs also
+open [`CHANNEL_UUID`] for UUID-addressed messages.
 
 @tparam string modem The name of the modem to open.
 @throws If there is no such modem with the given name
@@ -95,6 +108,7 @@ function open(modem)
     end
     peripheral.call(modem, "open", id_as_channel())
     peripheral.call(modem, "open", CHANNEL_BROADCAST)
+    if computer_uuid() then peripheral.call(modem, "open", CHANNEL_UUID) end
 end
 
 --- Close a modem with the given [`peripheral`] name, meaning it can no longer
@@ -113,6 +127,7 @@ function close(modem)
         end
         peripheral.call(modem, "close", id_as_channel())
         peripheral.call(modem, "close", CHANNEL_BROADCAST)
+        peripheral.call(modem, "close", CHANNEL_UUID)
     else
         -- Close all modems
         for _, modem in ipairs(peripheral.getNames()) do
@@ -148,6 +163,59 @@ function isOpen(modem)
     return false
 end
 
+local function send_message(recipient, message, protocol, uuid_broadcast)
+    expect(1, recipient, "number", "string")
+    expect(3, protocol, "string", "nil")
+    local uuid_recipient = type(recipient) == "string"
+    if uuid_recipient then
+        if not uuid_broadcast and not valid_uuid(recipient) then error("Invalid recipient UUID", 3) end
+        if not computer_uuid() then error("This computer has no persistent UUID", 3) end
+        recipient = recipient:lower()
+    end
+    -- Generate a (probably) unique message ID
+    -- We could do other things to guarantee uniqueness, but we really don't need to
+    -- Store it to ensure we don't get our own messages back
+    local message_id = math.random(1, 2147483647)
+    received_messages[message_id] = os.clock() + 9.5
+    if not prune_received_timer then prune_received_timer = os.startTimer(10) end
+
+    -- Create the message
+    local reply_channel = id_as_channel()
+    local message_wrapper = {
+        nMessageID = message_id,
+        nRecipient = uuid_recipient and CHANNEL_UUID or recipient,
+        sRecipientUUID = uuid_recipient and recipient or nil,
+        sSenderUUID = uuid_recipient and computer_uuid() or nil,
+        nSender = os.getComputerID(),
+        message = message,
+        sProtocol = protocol,
+    }
+
+    local sent = false
+    if recipient == os.getComputerID() or (uuid_recipient and recipient == computer_uuid()) then
+        -- Loopback to ourselves
+        os.queueEvent("rednet_message", uuid_recipient and computer_uuid() or os.getComputerID(), message, protocol)
+        sent = true
+    else
+        -- Send on all open modems, to the target and to repeaters
+        if uuid_recipient then
+            recipient = CHANNEL_UUID
+        elseif recipient ~= CHANNEL_BROADCAST then
+            recipient = id_as_channel(recipient)
+        end
+
+        for _, modem in ipairs(peripheral.getNames()) do
+            if isOpen(modem) then
+                peripheral.call(modem, "transmit", recipient, reply_channel, message_wrapper)
+                peripheral.call(modem, "transmit", CHANNEL_REPEAT, reply_channel, message_wrapper)
+                sent = true
+            end
+        end
+    end
+
+    return sent
+end
+
 --[[- Allows a computer or turtle with an attached modem to send a message
 intended for a computer with a specific ID. At least one such modem must first
 be [opened][`rednet.open`] before sending is possible.
@@ -155,7 +223,7 @@ be [opened][`rednet.open`] before sending is possible.
 Assuming the target was in range and also had a correctly opened modem, the
 target computer may then use [`rednet.receive`] to collect the message.
 
-@tparam number recipient The ID of the receiving computer.
+@tparam number|string recipient The numeric ID or UUID of the receiving computer.
 @param message The message to send. Like with [`modem.transmit`], this can
 contain any primitive type (numbers, booleans and strings) as well as
 tables. Other types (like functions), as well as metatables, will not be
@@ -174,46 +242,16 @@ actually _received_.
     rednet.send(2, "Hello from rednet!")
 ]]
 function send(recipient, message, protocol)
-    expect(1, recipient, "number")
-    expect(3, protocol, "string", "nil")
-    -- Generate a (probably) unique message ID
-    -- We could do other things to guarantee uniqueness, but we really don't need to
-    -- Store it to ensure we don't get our own messages back
-    local message_id = math.random(1, 2147483647)
-    received_messages[message_id] = os.clock() + 9.5
-    if not prune_received_timer then prune_received_timer = os.startTimer(10) end
+    return send_message(recipient, message, protocol, false)
+end
 
-    -- Create the message
-    local reply_channel = id_as_channel()
-    local message_wrapper = {
-        nMessageID = message_id,
-        nRecipient = recipient,
-        nSender = os.getComputerID(),
-        message = message,
-        sProtocol = protocol,
-    }
-
-    local sent = false
-    if recipient == os.getComputerID() then
-        -- Loopback to ourselves
-        os.queueEvent("rednet_message", os.getComputerID(), message, protocol)
-        sent = true
-    else
-        -- Send on all open modems, to the target and to repeaters
-        if recipient ~= CHANNEL_BROADCAST then
-            recipient = id_as_channel(recipient)
-        end
-
-        for _, modem in ipairs(peripheral.getNames()) do
-            if isOpen(modem) then
-                peripheral.call(modem, "transmit", recipient, reply_channel, message_wrapper)
-                peripheral.call(modem, "transmit", CHANNEL_REPEAT, reply_channel, message_wrapper)
-                sent = true
-            end
-        end
-    end
-
-    return sent
+--- Broadcast to UUID-capable computers. Recipients receive the sender's UUID.
+-- @param message The message payload.
+-- @tparam[opt] string protocol The protocol to send under.
+-- @treturn boolean Whether a message was sent through an open modem.
+function broadcastUUID(message, protocol)
+    expect(2, protocol, "string", "nil")
+    return send_message("*", message, protocol, true)
 end
 
 --[[- Broadcasts a string message over the predefined [`CHANNEL_BROADCAST`]
@@ -243,7 +281,7 @@ sent with. If specified, any messages not sent under this protocol will be
 discarded.
 @tparam[opt] number timeout The number of seconds to wait if no message is
 received.
-@treturn[1] number The computer which sent this message
+@treturn[1] number|string The numeric ID or UUID of the computer which sent this message
 @return[1] The received message
 @treturn[1] string|nil The protocol this message was sent under.
 @treturn[2] nil If the timeout elapsed and no message was received.
@@ -353,6 +391,76 @@ function unhost(protocol)
     hostnames[protocol] = nil
 end
 
+local function lookup_message(protocol, hostname, timeout, use_uuid)
+    expect(1, protocol, "string")
+    expect(2, hostname, "string", "nil")
+    expect(3, timeout, "number", "nil")
+    local own_id = use_uuid and computer_uuid() or os.getComputerID()
+    if use_uuid and not computer_uuid() then error("This computer has no persistent UUID", 3) end
+
+    -- Build list of host IDs
+    local results = nil
+    if hostname == nil then
+        results = {}
+    end
+
+    -- Check localhost first
+    if hostnames[protocol] then
+        if hostname == nil then
+            table.insert(results, own_id)
+        elseif hostname == "localhost" or hostname == hostnames[protocol] then
+            return own_id
+        end
+    end
+
+    if not isOpen() then
+        if results then
+            return table.unpack(results)
+        end
+        return nil
+    end
+
+    -- Broadcast a lookup packet
+    local transmit = use_uuid and broadcastUUID or broadcast
+    transmit({
+        sType = "lookup",
+        sProtocol = protocol,
+        sHostname = hostname,
+    }, "dns")
+
+    -- Start a timer
+    local timer = os.startTimer(timeout or 2)
+
+    -- Wait for events
+    while true do
+        local event, p1, p2, p3 = os.pullEvent()
+        if event == "rednet_message" then
+            -- Got a rednet message, check if it's the response to our request
+            local sender_id, message, message_protocol = p1, p2, p3
+            if message_protocol == "dns" and type(message) == "table" and message.sType == "lookup response" then
+                if message.sProtocol == protocol and (type(sender_id) == "string") == use_uuid then
+                    if hostname == nil then
+                        table.insert(results, sender_id)
+                    elseif message.sHostname == hostname then
+                        os.cancelTimer(timer)
+                        return sender_id
+                    end
+                end
+            end
+        elseif event == "timer" and p1 == timer then
+            -- Got a timer event, check it's the end of our timeout
+            break
+        end
+    end
+
+    os.cancelTimer(timer)
+
+    if results then
+        return table.unpack(results)
+    end
+    return nil
+end
+
 --[[- Search the local rednet network for systems [hosting][`rednet.host`] the
 desired protocol and returns any computer IDs that respond as "registered"
 against it.
@@ -389,70 +497,17 @@ or [`nil`] if none exists.
 
 ]]
 function lookup(protocol, hostname, timeout)
-    expect(1, protocol, "string")
-    expect(2, hostname, "string", "nil")
-    expect(2, timeout, "number", "nil")
+    return lookup_message(protocol, hostname, timeout, false)
+end
 
-    -- Build list of host IDs
-    local results = nil
-    if hostname == nil then
-        results = {}
-    end
-
-    -- Check localhost first
-    if hostnames[protocol] then
-        if hostname == nil then
-            table.insert(results, os.getComputerID())
-        elseif hostname == "localhost" or hostname == hostnames[protocol] then
-            return os.getComputerID()
-        end
-    end
-
-    if not isOpen() then
-        if results then
-            return table.unpack(results)
-        end
-        return nil
-    end
-
-    -- Broadcast a lookup packet
-    broadcast({
-        sType = "lookup",
-        sProtocol = protocol,
-        sHostname = hostname,
-    }, "dns")
-
-    -- Start a timer
-    local timer = os.startTimer(timeout or 2)
-
-    -- Wait for events
-    while true do
-        local event, p1, p2, p3 = os.pullEvent()
-        if event == "rednet_message" then
-            -- Got a rednet message, check if it's the response to our request
-            local sender_id, message, message_protocol = p1, p2, p3
-            if message_protocol == "dns" and type(message) == "table" and message.sType == "lookup response" then
-                if message.sProtocol == protocol then
-                    if hostname == nil then
-                        table.insert(results, sender_id)
-                    elseif message.sHostname == hostname then
-                        os.cancelTimer(timer)
-                        return sender_id
-                    end
-                end
-            end
-        elseif event == "timer" and p1 == timer then
-            -- Got a timer event, check it's the end of our timeout
-            break
-        end
-    end
-
-    os.cancelTimer(timer)
-
-    if results then
-        return table.unpack(results)
-    end
-    return nil
+--- Look up persistent UUIDs using the same host registrations as lookup().
+-- @tparam string protocol The hosted protocol to search for.
+-- @tparam[opt] string hostname The specific host to find, or all hosts if omitted.
+-- @tparam[opt=2] number timeout The number of seconds to wait.
+-- @treturn string... The matching UUIDs (or no values if none were found).
+-- @see lookup
+function lookupUUID(protocol, hostname, timeout)
+    return lookup_message(protocol, hostname, timeout, true)
 end
 
 local started = false
@@ -473,7 +528,18 @@ function run()
         if event == "modem_message" then
             -- Got a modem message, process it and add it to the rednet event queue
             local modem, channel, reply_channel, message = p1, p2, p3, p4
-            if channel == id_as_channel() or channel == CHANNEL_BROADCAST then
+            if channel == CHANNEL_UUID and computer_uuid() then
+                if type(message) == "table" and type(message.nMessageID) == "number"
+                    and message.nMessageID == message.nMessageID and not received_messages[message.nMessageID]
+                    and message.nRecipient == CHANNEL_UUID and valid_uuid(message.sSenderUUID)
+                    and (message.sRecipientUUID == computer_uuid() or message.sRecipientUUID == "*")
+                    and isOpen(modem) and peripheral.call(modem, "isOpen", CHANNEL_UUID)
+                then
+                    received_messages[message.nMessageID] = os.clock() + 9.5
+                    if not prune_received_timer then prune_received_timer = os.startTimer(10) end
+                    os.queueEvent("rednet_message", message.sSenderUUID:lower(), message.message, message.sProtocol)
+                end
+            elseif channel == id_as_channel() or channel == CHANNEL_BROADCAST then
                 if type(message) == "table" and type(message.nMessageID) == "number"
                     and message.nMessageID == message.nMessageID and not received_messages[message.nMessageID]
                     and (type(message.nSender) == "nil" or (type(message.nSender) == "number" and message.nSender == message.nSender))

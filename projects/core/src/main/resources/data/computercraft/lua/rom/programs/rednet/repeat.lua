@@ -54,7 +54,7 @@ local ok, error = pcall(function()
                         tReceivedMessageTimeouts[os.startTimer(30)] = tMessage.nMessageID
 
                         local recipient_channel = tMessage.nRecipient
-                        if tMessage.nRecipient ~= rednet.CHANNEL_BROADCAST then
+                        if tMessage.nRecipient ~= rednet.CHANNEL_BROADCAST and tMessage.nRecipient ~= rednet.CHANNEL_UUID then
                             recipient_channel = recipient_channel % rednet.MAX_ID_CHANNELS
                         end
 

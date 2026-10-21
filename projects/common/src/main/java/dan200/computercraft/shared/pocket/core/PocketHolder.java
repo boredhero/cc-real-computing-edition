@@ -13,6 +13,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -25,6 +26,19 @@ public sealed interface PocketHolder {
      * @return The holder's level.
      */
     ServerLevel level();
+
+    /**
+     * Get the current item to distinguish a transferred pocket from a copied runtime reference.
+     *
+     * @return The item currently held here.
+     */
+    default ItemStack item() {
+        return switch (this) {
+            case PlayerHolder holder -> holder.entity().getInventory().getItem(holder.slot());
+            case ItemEntityHolder holder -> holder.entity().getItem();
+            case LecternHolder holder -> holder.lectern().getItem();
+        };
+    }
 
     /**
      * The position of this holder.

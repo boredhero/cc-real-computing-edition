@@ -182,19 +182,41 @@ public class PocketComputerItem extends Item {
     public PocketBrain getOrCreateBrain(PocketHolder holder, ItemStack stack) {
         var server = holder.level().getServer();
         var registry = ServerContext.get(server).registry();
-        {
-            var computer = getServerComputer(registry, stack);
-            if (computer != null) {
-                var brain = computer.getBrain();
-                brain.updateHolder(holder);
-                return brain;
+        var requested = stack.get(ModRegistry.DataComponents.COMPUTER_UUID.get());
+        var existing = getServerComputer(registry, stack);
+        if (existing == null && requested != null) {
+            for (var candidate : registry.getComputers()) {
+                if (candidate instanceof PocketServerComputer pocket && requested.equals(pocket.getComputerUUID())) {
+                    existing = pocket;
+                    break;
+                }
             }
         }
+        var copied = false;
+        if (existing != null) {
+            var brain = existing.getBrain();
+            copied = brain.holder().item() != stack && brain.holder().isValid(existing);
+            if (!copied) {
+                var reference = new ServerComputerReference(registry.getSessionID(), existing.getInstanceUUID());
+                var changed = !java.util.Objects.equals(requested, existing.getComputerUUID())
+                    || !reference.equals(stack.get(ModRegistry.DataComponents.COMPUTER.get()));
+                stack.set(ModRegistry.DataComponents.COMPUTER_UUID.get(), existing.getComputerUUID());
+                stack.set(ModRegistry.DataComponents.COMPUTER.get(), reference);
+                brain.updateHolder(holder);
+                if (changed) holder.setChanged();
+                return brain;
+            }
+            requested = existing.getComputerUUID();
+        }
+        var identities = ComputerIdentities.get(holder.level());
+        var uuid = copied && requested != null ? identities.copy(requested, "pocket") : identities.claim(requested, "pocket");
+        stack.set(ModRegistry.DataComponents.COMPUTER_UUID.get(), uuid);
 
         var computerID = NonNegativeId.getOrCreate(server, stack, ModRegistry.DataComponents.COMPUTER_ID.get(), IDAssigner.COMPUTER);
         var brain = new PocketBrain(
             holder, getUpgradeWithData(stack), DyedItemColor.getOrDefault(stack, -1),
             ServerComputer.properties(computerID, getFamily())
+                .uuid(uuid)
                 .label(getLabel(stack))
                 .storageCapacity(StorageCapacity.getOrDefault(stack.get(ModRegistry.DataComponents.STORAGE_CAPACITY.get()), -1))
                 .terminalSize(stack.getOrDefault(
@@ -220,6 +242,7 @@ public class PocketComputerItem extends Item {
         if (computer == null) return null;
 
         var brain = computer.getBrain();
+        if (brain.holder().item() != stack && brain.holder().isValid(computer)) return getOrCreateBrain(holder, stack);
         brain.updateHolder(holder);
         return brain;
     }

@@ -34,6 +34,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import org.jspecify.annotations.Nullable;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -43,6 +44,7 @@ public class ServerComputer implements ComputerEnvironment {
     public static final ComputerComponent<MetricsObserver> METRICS = ComputerComponent.create("computercraft", "metrics");
 
     private final @Nullable UUID deviceUUID;
+    private final List<UUID> storageSources;
     private final UUID instanceUUID = UUID.randomUUID();
 
     private ServerLevel level;
@@ -64,6 +66,7 @@ public class ServerComputer implements ComputerEnvironment {
         this.position = position;
         this.family = properties.family;
         deviceUUID = properties.deviceUUID;
+        storageSources = deviceUUID == null ? List.of() : ComputerIdentities.get(level).storageSources(deviceUUID);
 
         var context = ServerContext.get(level.getServer());
         terminal = new NetworkedTerminal(properties.terminalWidth, properties.terminalHeight, family != ComputerFamily.NORMAL, this::markTerminalChanged);
@@ -279,7 +282,9 @@ public class ServerComputer implements ComputerEnvironment {
     @Override
     public final WritableMount createRootMount() {
         var capacity = storageCapacity <= 0 ? ConfigSpec.computerSpaceLimit.get() : storageCapacity;
-        return ComputerCraftAPI.createSaveDirMount(level.getServer(), "computer/" + computer.getID(), capacity);
+        var path = deviceUUID == null ? "computer/" + computer.getID()
+            : ComputerStorage.prepare(ServerContext.get(level.getServer()).storageDir(), deviceUUID, storageSources, computer.getID());
+        return ComputerCraftAPI.createSaveDirMount(level.getServer(), path, capacity);
     }
 
     public static Properties properties(int computerID, ComputerFamily family) {

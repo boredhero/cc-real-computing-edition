@@ -12,6 +12,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.SavedData;
 import org.jspecify.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -19,6 +21,7 @@ import java.util.UUID;
 /** Persistent claims prevent copied blocks from impersonating another placed device, even in unloaded chunks. */
 public final class ComputerIdentities extends SavedData {
     private final Map<UUID, String> claims = new HashMap<>();
+    private final Map<UUID, UUID> storageSources = new HashMap<>();
 
     public static ComputerIdentities get(ServerLevel level) {
         return level.getServer().overworld().getDataStorage().computeIfAbsent(
@@ -36,8 +39,37 @@ public final class ComputerIdentities extends SavedData {
                 uuid = UUID.randomUUID();
             } while (claims.containsKey(uuid));
         }
+        if (requested != null && !requested.equals(uuid)) storageSources.put(uuid, requested);
         if (!location.equals(claims.put(uuid, location))) setDirty();
         return uuid;
+    }
+
+    /**
+     * Allocate an independent copy of a mobile device.
+     *
+     * @param source The original device UUID.
+     * @param location The new claim location.
+     * @return The independent copy's UUID.
+     */
+    public UUID copy(UUID source, String location) {
+        var uuid = claim(null, location);
+        storageSources.put(uuid, source);
+        setDirty();
+        return uuid;
+    }
+
+    /**
+     * Capture the source lineage on the server thread before mounting on the computer thread.
+     *
+     * @param uuid The device being mounted.
+     * @return Source UUIDs, nearest ancestor first.
+     */
+    public List<UUID> storageSources(UUID uuid) {
+        var sources = new ArrayList<UUID>();
+        sources.add(uuid);
+        while ((uuid = storageSources.get(uuid)) != null && !sources.contains(uuid)) sources.add(uuid);
+        sources.removeFirst();
+        return List.copyOf(sources);
     }
 
     public void release(@Nullable UUID uuid, String location) {
@@ -56,6 +88,12 @@ public final class ComputerIdentities extends SavedData {
             var claim = (CompoundTag) entry;
             if (claim.hasUUID("UUID")) identities.claims.put(claim.getUUID("UUID"), claim.getString("Location"));
         }
+        for (var entry : tag.getList("StorageSources", Tag.TAG_COMPOUND)) {
+            var source = (CompoundTag) entry;
+            if (source.hasUUID("UUID") && source.hasUUID("Source")) {
+                identities.storageSources.put(source.getUUID("UUID"), source.getUUID("Source"));
+            }
+        }
         return identities;
     }
 
@@ -69,6 +107,14 @@ public final class ComputerIdentities extends SavedData {
             list.add(claim);
         });
         tag.put("Claims", list);
+        var sources = new ListTag();
+        storageSources.forEach((uuid, source) -> {
+            var entry = new CompoundTag();
+            entry.putUUID("UUID", uuid);
+            entry.putUUID("Source", source);
+            sources.add(entry);
+        });
+        tag.put("StorageSources", sources);
         return tag;
     }
 }

@@ -59,12 +59,12 @@ Universal player parity is the ambition, not a compatibility claim. Some mods as
 
 ## Stable device identity
 
-Implemented for computer blocks and turtles: `os.getComputerUUID()`, peripheral
-`getUUID()`, persistent block/item components, and a saved world registry of
-placed identities. Movement and pickup preserve identity; placement of a copy
-whose UUID is already claimed assigns a fresh UUID. Existing labels, numeric
-networking and numeric storage paths remain. See [migration and copy semantics](identity.md).
-Pocket identities and UUID-addressed networking/storage are separate future work.
+Implemented for computer blocks, turtles and pockets: `os.getComputerUUID()`,
+block peripheral `getUUID()`, persistent components and duplicate detection.
+`rednet.send` accepts UUIDs; `lookupUUID` and `broadcastUUID` support UUID fleets.
+Internal storage migrates to UUID directories and recognised clones copy files
+independently. Numeric rednet remains compatible. See [migration, pocket-copy
+limitations and examples](identity.md).
 
 ## Milestones and acceptance evidence
 
