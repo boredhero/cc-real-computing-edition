@@ -20,7 +20,8 @@ credits="Created by Daniel Ratcliffe (@DanTwoHundred)"
 authors="Daniel Ratcliffe, Aaron Mills, SquidDev"
 description='''
 An independent CC: Tweaked fork targeting more capable computation and turtle automation.
-Initial development baseline; new compute and interaction APIs are under development.
+Independent background Lua compute workers with message passing and configurable budgets.
+Expanded turtle interactions are planned.
 '''
 
 [[dependencies.computercraft]]

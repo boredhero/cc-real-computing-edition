@@ -9,6 +9,7 @@ import dan200.computercraft.api.ComputerCraftAPI;
 import dan200.computercraft.api.filesystem.Mount;
 import dan200.computercraft.api.network.PacketNetwork;
 import dan200.computercraft.core.ComputerContext;
+import dan200.computercraft.core.compute.ComputeLimits;
 import dan200.computercraft.core.computer.GlobalEnvironment;
 import dan200.computercraft.core.computer.mainthread.MainThread;
 import dan200.computercraft.core.computer.mainthread.MainThreadConfig;
@@ -71,6 +72,10 @@ public final class ServerContext {
         mainThread = new MainThread(mainThreadConfig);
         context = ComputerContext.builder(new Environment(server))
             .computerThreads(ConfigSpec.computerThreads.get())
+            .computeLimits(new ComputeLimits(
+                ConfigSpec.computeThreads.get(), ConfigSpec.computeGlobalJobs.get(), ConfigSpec.computeComputerJobs.get(),
+                ConfigSpec.computePayloadBytes.get(), ConfigSpec.computeSourceBytes.get(), ConfigSpec.computeRuntimeMillis.get()
+            ))
             .mainThreadScheduler(mainThread)
             .luaFactory(luaMachine)
             .genericMethods(GenericSources.getAllMethods())

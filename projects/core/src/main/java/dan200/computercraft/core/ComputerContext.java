@@ -8,6 +8,8 @@ import com.google.errorprone.annotations.CheckReturnValue;
 import dan200.computercraft.core.asm.GenericMethod;
 import dan200.computercraft.core.asm.LuaMethodSupplier;
 import dan200.computercraft.core.asm.PeripheralMethodSupplier;
+import dan200.computercraft.core.compute.ComputeLimits;
+import dan200.computercraft.core.compute.ComputeScheduler;
 import dan200.computercraft.core.computer.GlobalEnvironment;
 import dan200.computercraft.core.computer.computerthread.ComputerScheduler;
 import dan200.computercraft.core.computer.computerthread.ComputerThread;
@@ -36,12 +38,13 @@ public final class ComputerContext {
     private final ILuaMachine.Factory luaFactory;
     private final MethodSupplier<LuaMethod> luaMethods;
     private final MethodSupplier<PeripheralMethod> peripheralMethods;
+    private final ComputeScheduler computeScheduler;
 
     private ComputerContext(
         GlobalEnvironment globalEnvironment, ComputerScheduler computerScheduler,
         MainThreadScheduler mainThreadScheduler, ILuaMachine.Factory luaFactory,
         MethodSupplier<LuaMethod> luaMethods,
-        MethodSupplier<PeripheralMethod> peripheralMethods
+        MethodSupplier<PeripheralMethod> peripheralMethods, ComputeLimits computeLimits
     ) {
         this.globalEnvironment = globalEnvironment;
         this.computerScheduler = computerScheduler;
@@ -49,6 +52,11 @@ public final class ComputerContext {
         this.luaFactory = luaFactory;
         this.luaMethods = luaMethods;
         this.peripheralMethods = peripheralMethods;
+        computeScheduler = new ComputeScheduler(computeLimits);
+    }
+
+    public ComputeScheduler computeScheduler() {
+        return computeScheduler;
     }
 
     /**
@@ -117,7 +125,11 @@ public final class ComputerContext {
      */
     @CheckReturnValue
     public boolean close(long timeout, TimeUnit unit) throws InterruptedException {
-        return computerScheduler().stop(timeout, unit);
+        var deadline = System.nanoTime() + unit.toNanos(timeout);
+        computeScheduler.requestStop();
+        var computersStopped = computerScheduler().stop(timeout, unit);
+        var computeStopped = computeScheduler.awaitStopped(Math.max(0, deadline - System.nanoTime()), TimeUnit.NANOSECONDS);
+        return computersStopped && computeStopped;
     }
 
     /**
@@ -129,7 +141,7 @@ public final class ComputerContext {
      * @throws InterruptedException  If interrupted while waiting.
      */
     public void ensureClosed(long timeout, TimeUnit unit) throws InterruptedException {
-        if (!computerScheduler().stop(timeout, unit)) {
+        if (!close(timeout, unit)) {
             throw new IllegalStateException("Failed to shutdown ComputerContext in time.");
         }
     }
@@ -155,6 +167,12 @@ public final class ComputerContext {
         private @Nullable MainThreadScheduler mainThreadScheduler;
         private ILuaMachine.@Nullable Factory luaFactory;
         private @Nullable List<GenericMethod> genericMethods;
+        private ComputeLimits computeLimits = ComputeLimits.DEFAULT;
+
+        public Builder computeLimits(ComputeLimits limits) {
+            computeLimits = Objects.requireNonNull(limits);
+            return this;
+        }
 
         Builder(GlobalEnvironment environment) {
             this.environment = environment;
@@ -241,7 +259,8 @@ public final class ComputerContext {
                 mainThreadScheduler == null ? new NoWorkMainThreadScheduler() : mainThreadScheduler,
                 luaFactory == null ? CobaltLuaMachine::new : luaFactory,
                 LuaMethodSupplier.create(genericMethods == null ? List.of() : genericMethods),
-                PeripheralMethodSupplier.create(genericMethods == null ? List.of() : genericMethods)
+                PeripheralMethodSupplier.create(genericMethods == null ? List.of() : genericMethods),
+                computeLimits
             );
         }
     }

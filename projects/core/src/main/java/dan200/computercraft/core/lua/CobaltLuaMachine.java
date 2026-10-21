@@ -10,6 +10,7 @@ import dan200.computercraft.api.lua.ILuaContext;
 import dan200.computercraft.api.lua.ILuaFunction;
 import dan200.computercraft.core.CoreConfig;
 import dan200.computercraft.core.Logging;
+import dan200.computercraft.core.apis.ComputeAPI;
 import dan200.computercraft.core.computer.TimeoutState;
 import dan200.computercraft.core.lua.errorinfo.ErrorInfoLib;
 import dan200.computercraft.core.methods.LuaMethod;
@@ -98,7 +99,11 @@ public class CobaltLuaMachine implements ILuaMachine {
     private void addAPI(LuaState state, LuaTable globals, ILuaAPI api) throws LuaError {
         // Add the methods of an API to the global table
         var table = new LuaTable();
-        if (!makeLuaObject(api, table)) LOG.warn("API {} does not provide any methods", api);
+        if (api instanceof ComputeAPI compute) {
+            compute.add(table);
+        } else if (!makeLuaObject(api, table)) {
+            LOG.warn("API {} does not provide any methods", api);
+        }
 
         var names = api.getNames();
         for (var name : names) globals.rawset(name, table);

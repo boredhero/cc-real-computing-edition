@@ -1,8 +1,8 @@
-New features in CC: Tweaked 1.120.2
+New features in CC: Real Computing Edition 1.120.2-rce.0.2.0-SNAPSHOT
 
-Several bug fixes:
-* Fix shell crashing if `read()` doesn't yield.
-* Fix pocket/printout lecterns not rendering when at the very bottom of the screen.
-* Several documentation fixes. (tomodachi94)
+* Add independent background Lua compute jobs with copied inputs and results.
+* Add completion events, polling, cancellation and automatic shutdown cleanup.
+* Add server-configurable compute threads, job counts, payload sizes and execution budgets.
+* Add compute_demo and help compute.
 
 Type "help changelog" to see the full version history.

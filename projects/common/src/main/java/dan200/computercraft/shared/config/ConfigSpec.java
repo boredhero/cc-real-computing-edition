@@ -10,6 +10,7 @@ import dan200.computercraft.core.CoreConfig;
 import dan200.computercraft.core.Logging;
 import dan200.computercraft.core.apis.http.NetworkUtils;
 import dan200.computercraft.core.apis.http.options.ProxyType;
+import dan200.computercraft.core.compute.ComputeLimits;
 import dan200.computercraft.core.computer.mainthread.MainThreadConfig;
 import dan200.computercraft.shared.computer.core.TerminalSize;
 import dan200.computercraft.shared.peripheral.monitor.MonitorRenderer;
@@ -38,6 +39,12 @@ public final class ConfigSpec {
     public static final ConfigFile.Value<List<? extends String>> disabledGenericMethods;
 
     public static final ConfigFile.Value<Integer> computerThreads;
+    public static final ConfigFile.Value<Integer> computeThreads;
+    public static final ConfigFile.Value<Integer> computeGlobalJobs;
+    public static final ConfigFile.Value<Integer> computeComputerJobs;
+    public static final ConfigFile.Value<Integer> computePayloadBytes;
+    public static final ConfigFile.Value<Integer> computeSourceBytes;
+    public static final ConfigFile.Value<Integer> computeRuntimeMillis;
     public static final ConfigFile.Value<Integer> maxMainGlobalTime;
     public static final ConfigFile.Value<Integer> maxMainComputerTime;
 
@@ -178,6 +185,25 @@ public final class ConfigSpec {
                     long a will take - this aims to be the upper bound of the average time.""")
                 .defineInRange("max_main_computer_time", (int) TimeUnit.NANOSECONDS.toMillis(MainThreadConfig.DEFAULT_MAX_COMPUTER_TIME), 1, Integer.MAX_VALUE);
 
+            builder.pop();
+        }
+
+        {
+            builder.comment("Independent Lua compute workers. All settings require a world restart.");
+            builder.push("compute");
+            var defaults = ComputeLimits.DEFAULT;
+            computeThreads = builder.comment("Background compute threads, separate from computer_threads and server ticks.")
+                .worldRestart().defineInRange("threads", defaults.threads(), 1, 64);
+            computeGlobalJobs = builder.comment("Maximum outstanding jobs across the server, including uncollected results.")
+                .worldRestart().defineInRange("global_jobs", defaults.globalJobs(), 1, 65536);
+            computeComputerJobs = builder.comment("Maximum outstanding jobs per computer, including uncollected results.")
+                .worldRestart().defineInRange("computer_jobs", defaults.computerJobs(), 1, 1024);
+            computePayloadBytes = builder.comment("Maximum encoded input or output bytes per job. This is not a Lua heap limit.")
+                .worldRestart().defineInRange("payload_bytes", defaults.payloadBytes(), 1024, 64 * 1024 * 1024);
+            computeSourceBytes = builder.comment("Maximum source bytes per job.")
+                .worldRestart().defineInRange("source_bytes", defaults.sourceBytes(), 1024, 4 * 1024 * 1024);
+            computeRuntimeMillis = builder.comment("Maximum accumulated execution time per job in milliseconds, excluding time in the queue.")
+                .worldRestart().defineInRange("runtime_millis", defaults.runtimeMillis(), 100, 86400000);
             builder.pop();
         }
 

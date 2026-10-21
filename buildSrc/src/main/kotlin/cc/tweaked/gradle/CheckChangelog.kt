@@ -40,7 +40,7 @@ abstract class CheckChangelog : DefaultTask() {
 
         // Check we're targeting the current version
         var whatsNew = whatsNew.get().asFile.readLines()
-        if (whatsNew[0] != "New features in CC: Tweaked $version") {
+        if (whatsNew[0] != "New features in CC: Real Computing Edition $version") {
             ok = false
             logger.error("Expected `whatsnew.md' to target $version.")
         }
