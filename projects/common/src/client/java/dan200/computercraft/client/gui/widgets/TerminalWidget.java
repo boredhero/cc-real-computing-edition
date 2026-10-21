@@ -41,6 +41,7 @@ public class TerminalWidget extends AbstractWidget {
     private final ClientComputerActions computerActions;
 
     // The positions of the actual terminal
+    private final float scale;
     private final int innerX;
     private final int innerY;
     private final int innerWidth;
@@ -51,7 +52,13 @@ public class TerminalWidget extends AbstractWidget {
     private float shutdownTimer = -1;
 
     public TerminalWidget(Terminal terminal, UserComputerInput computerInput, ClientComputerActions computerActions, int x, int y) {
-        super(x, y, terminal.getWidth() * FONT_WIDTH + MARGIN * 2, terminal.getHeight() * FONT_HEIGHT + MARGIN * 2, DESCRIPTION);
+        this(terminal, computerInput, computerActions, x, y, 1);
+    }
+
+    public TerminalWidget(Terminal terminal, UserComputerInput computerInput, ClientComputerActions computerActions, int x, int y, float scale) {
+        super(x, y, (int) Math.ceil(getWidth(terminal.getWidth()) * scale), (int) Math.ceil(getHeight(terminal.getHeight()) * scale), DESCRIPTION);
+        if (!Float.isFinite(scale) || scale <= 0) throw new IllegalArgumentException("Invalid terminal scale");
+        this.scale = scale;
 
         this.terminal = terminal;
         this.computerInput = computerInput;
@@ -119,6 +126,8 @@ public class TerminalWidget extends AbstractWidget {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        mouseX = getX() + (mouseX - getX()) / scale;
+        mouseY = getY() + (mouseY - getY()) / scale;
         if (!inTermRegion(mouseX, mouseY)) return false;
 
         var charX = (int) ((mouseX - innerX) / FONT_WIDTH);
@@ -130,6 +139,8 @@ public class TerminalWidget extends AbstractWidget {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        mouseX = getX() + (mouseX - getX()) / scale;
+        mouseY = getY() + (mouseY - getY()) / scale;
         if (!inTermRegion(mouseX, mouseY)) return false;
 
         var charX = (int) ((mouseX - innerX) / FONT_WIDTH);
@@ -141,6 +152,8 @@ public class TerminalWidget extends AbstractWidget {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double v2, double v3) {
+        mouseX = getX() + (mouseX - getX()) / scale;
+        mouseY = getY() + (mouseY - getY()) / scale;
         if (!inTermRegion(mouseX, mouseY)) return false;
 
         var charX = (int) ((mouseX - innerX) / FONT_WIDTH);
@@ -151,6 +164,8 @@ public class TerminalWidget extends AbstractWidget {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        mouseX = getX() + (mouseX - getX()) / scale;
+        mouseY = getY() + (mouseY - getY()) / scale;
         if (!inTermRegion(mouseX, mouseY)) return false;
         if (deltaY == 0) return false;
 
@@ -193,12 +208,17 @@ public class TerminalWidget extends AbstractWidget {
     public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         if (!visible) return;
 
+        graphics.pose().pushPose();
+        graphics.pose().translate(getX(), getY(), 0);
+        graphics.pose().scale(scale, scale, 1);
+        graphics.pose().translate(-getX(), -getY(), 0);
         var emitter = FixedWidthFontRenderer.toVertexConsumer(graphics.pose(), graphics.bufferSource().getBuffer(RenderTypes.TERMINAL));
 
         FixedWidthFontRenderer.drawTerminal(
             emitter,
             (float) innerX, (float) innerY, terminal, (float) MARGIN, (float) MARGIN, (float) MARGIN, (float) MARGIN
         );
+        graphics.pose().popPose();
     }
 
     @Override

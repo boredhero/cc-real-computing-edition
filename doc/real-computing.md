@@ -59,7 +59,12 @@ Universal player parity is the ambition, not a compatibility claim. Some mods as
 
 ## Stable device identity
 
-Add UUID-based identity for computers and turtles, with human-readable names alongside it. Preserve numeric IDs as a compatibility alias for existing Lua programs, networking and saved computer directories. Define UUID generation, persistence across turtle movement and item pickup/replacement, cross-server/world import, backups, cloning and collision handling. A cloned device must not silently impersonate the original; migration must preserve existing programs and storage without changing this release's identity behavior.
+Implemented for computer blocks and turtles: `os.getComputerUUID()`, peripheral
+`getUUID()`, persistent block/item components, and a saved world registry of
+placed identities. Movement and pickup preserve identity; placement of a copy
+whose UUID is already claimed assigns a fresh UUID. Existing labels, numeric
+networking and numeric storage paths remain. See [migration and copy semantics](identity.md).
+Pocket identities and UUID-addressed networking/storage are separate future work.
 
 ## Milestones and acceptance evidence
 

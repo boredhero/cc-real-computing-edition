@@ -22,6 +22,8 @@ import static dan200.computercraft.client.render.ComputerBorderRenderer.BORDER;
  * @param <T> The concrete type of the associated menu.
  */
 public final class ComputerScreen<T extends AbstractComputerMenu> extends AbstractComputerScreen<T> {
+    private float terminalScale = 1;
+
     public ComputerScreen(T container, Inventory player, Component title) {
         super(container, player, title, BORDER);
 
@@ -30,10 +32,23 @@ public final class ComputerScreen<T extends AbstractComputerMenu> extends Abstra
     }
 
     @Override
+    protected void init() {
+        var terminalWidth = TerminalWidget.getWidth(terminalData.getWidth());
+        var terminalHeight = TerminalWidget.getHeight(terminalData.getHeight());
+        terminalScale = Math.max(0.1f, Math.min(1, Math.min(
+            (float) (width - 20 - BORDER * 2 - AbstractComputerMenu.SIDEBAR_WIDTH) / terminalWidth,
+            (float) (height - 20 - BORDER * 2) / terminalHeight
+        )));
+        imageWidth = (int) Math.ceil(terminalWidth * terminalScale) + BORDER * 2 + AbstractComputerMenu.SIDEBAR_WIDTH;
+        imageHeight = (int) Math.ceil(terminalHeight * terminalScale) + BORDER * 2;
+        super.init();
+    }
+
+    @Override
     protected TerminalWidget createTerminal() {
         return new TerminalWidget(
             terminalData, computerInput, computerActions,
-            leftPos + AbstractComputerMenu.SIDEBAR_WIDTH + BORDER, topPos + BORDER
+            leftPos + AbstractComputerMenu.SIDEBAR_WIDTH + BORDER, topPos + BORDER, terminalScale
         );
     }
 

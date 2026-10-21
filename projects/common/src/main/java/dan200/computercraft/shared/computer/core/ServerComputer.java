@@ -42,6 +42,7 @@ import java.util.function.Function;
 public class ServerComputer implements ComputerEnvironment {
     public static final ComputerComponent<MetricsObserver> METRICS = ComputerComponent.create("computercraft", "metrics");
 
+    private final @Nullable UUID deviceUUID;
     private final UUID instanceUUID = UUID.randomUUID();
 
     private ServerLevel level;
@@ -62,6 +63,7 @@ public class ServerComputer implements ComputerEnvironment {
         this.level = level;
         this.position = position;
         this.family = properties.family;
+        deviceUUID = properties.deviceUUID;
 
         var context = ServerContext.get(level.getServer());
         terminal = new NetworkedTerminal(properties.terminalWidth, properties.terminalHeight, family != ComputerFamily.NORMAL, this::markTerminalChanged);
@@ -88,6 +90,11 @@ public class ServerComputer implements ComputerEnvironment {
             system.activate();
             computer.addApi(api, system);
         }
+    }
+
+    @Override
+    public @Nullable UUID getComputerUUID() {
+        return deviceUUID;
     }
 
     public final ComputerFamily getFamily() {
@@ -280,6 +287,7 @@ public class ServerComputer implements ComputerEnvironment {
     }
 
     public static final class Properties {
+        private @Nullable UUID deviceUUID;
         private final int computerID;
         private @Nullable String label;
         private final ComputerFamily family;
@@ -292,6 +300,11 @@ public class ServerComputer implements ComputerEnvironment {
         private Properties(int computerID, ComputerFamily family) {
             this.computerID = computerID;
             this.family = family;
+        }
+
+        public Properties uuid(UUID uuid) {
+            deviceUUID = uuid;
+            return this;
         }
 
         public Properties label(@Nullable String label) {

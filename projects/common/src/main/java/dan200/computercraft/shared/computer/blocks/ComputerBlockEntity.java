@@ -87,6 +87,7 @@ public class ComputerBlockEntity extends AbstractComputerBlockEntity {
     protected ServerComputer createComputer(int id) {
         return new ServerComputer((ServerLevel) getLevel(), getBlockPos(), ServerComputer.properties(id, getFamily())
             .label(getLabel())
+            .uuid(getComputerUUID())
             .terminalSize(terminalSize != null ? terminalSize : new TerminalSize(ConfigSpec.computerTermWidth.get(), ConfigSpec.computerTermHeight.get()))
             .storageCapacity(storageCapacity)
         );

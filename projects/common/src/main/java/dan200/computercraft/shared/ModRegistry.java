@@ -313,7 +313,14 @@ public final class ModRegistry {
         }
 
         /**
-         * The id of a computer.
+         * The persistent identity of a computer or turtle block.
+         */
+        public static final RegistryEntry<DataComponentType<java.util.UUID>> COMPUTER_UUID = register("computer_uuid", b -> b
+            .persistent(net.minecraft.core.UUIDUtil.CODEC).networkSynchronized(net.minecraft.core.UUIDUtil.STREAM_CODEC)
+        );
+
+        /**
+         * The legacy numeric storage ID of a computer.
          */
         public static final RegistryEntry<DataComponentType<NonNegativeId>> COMPUTER_ID = register("computer_id", b -> b
             .persistent(NonNegativeId.CODEC).networkSynchronized(NonNegativeId.STREAM_CODEC)

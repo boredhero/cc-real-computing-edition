@@ -44,7 +44,11 @@ public class TurtleScreen extends AbstractComputerScreen<TurtleMenu> {
     protected TerminalWidget createTerminal() {
         return new TerminalWidget(
             terminalData, computerInput, computerActions,
-            leftPos + BORDER + AbstractComputerMenu.SIDEBAR_WIDTH, topPos + BORDER
+            leftPos + BORDER + AbstractComputerMenu.SIDEBAR_WIDTH, topPos + BORDER,
+            Math.min(1, Math.min(
+                (float) TerminalWidget.getWidth(39) / TerminalWidget.getWidth(terminalData.getWidth()),
+                (float) TerminalWidget.getHeight(13) / TerminalWidget.getHeight(terminalData.getHeight())
+            ))
         );
     }
 

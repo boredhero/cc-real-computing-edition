@@ -43,6 +43,7 @@ public class TestMod {
         modBus.addListener((RegisterGameTestsEvent event) -> {
             TestHooks.loadTests(event::register);
             event.register(TargetedProtectionTest.class);
+            event.register(IdentityTest.class);
         });
     }
 

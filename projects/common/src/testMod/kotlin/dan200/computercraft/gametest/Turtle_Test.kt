@@ -60,6 +60,28 @@ import kotlin.time.Duration.Companion.milliseconds
 
 class Turtle_Test {
     @GameTest
+    fun Uuid_survives_movement(helper: GameTestHelper) = helper.sequence {
+        thenOnComputer {
+            val os = getApi<dan200.computercraft.core.apis.OSAPI>()
+            val uuid = os.getComputerUUID()
+            assertNotNull(uuid)
+            UUID.fromString(uuid)
+            val id = os.getComputerID()
+            turtle.forward().await().assertArrayEquals(true)
+            turtle.turnRight().await().assertArrayEquals(true)
+            assertEquals(uuid, os.getComputerUUID())
+            assertEquals(id, os.getComputerID())
+        }
+        thenExecute {
+            val moved = helper.getBlockEntity(BlockPos(4, 3, 5), ModRegistry.BlockEntities.TURTLE_NORMAL.get())
+            assertEquals(moved.computerUUID, moved.createServerComputer().computerUUID)
+            val terminal = moved.createServerComputer().terminalState.create()
+            assertEquals(47, terminal.width)
+            assertEquals(16, terminal.height)
+        }
+    }
+
+    @GameTest
     fun Targeted_farming(helper: GameTestHelper) = helper.sequence {
         thenOnComputer {
             val observed = context.executeMainThreadTask { arrayOf(turtle.observe(4.0)) }.await()!![0] as Map<*, *>

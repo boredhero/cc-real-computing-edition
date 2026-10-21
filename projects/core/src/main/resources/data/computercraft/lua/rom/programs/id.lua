@@ -10,6 +10,8 @@ end
 
 if sDrive == nil then
     print("This is computer #" .. os.getComputerID())
+    local uuid = os.getComputerUUID()
+    if uuid then print("UUID: " .. uuid) end
 
     local label = os.getComputerLabel()
     if label then

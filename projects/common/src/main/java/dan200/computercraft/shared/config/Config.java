@@ -30,11 +30,11 @@ public final class Config {
     public static int advancedTurtleFuelLimit = 100000;
     public static boolean turtlesCanPush = true;
 
-    public static final int DEFAULT_COMPUTER_TERM_WIDTH = 51;
-    public static final int DEFAULT_COMPUTER_TERM_HEIGHT = 19;
+    public static final int DEFAULT_COMPUTER_TERM_WIDTH = 61;
+    public static final int DEFAULT_COMPUTER_TERM_HEIGHT = 23;
 
-    public static final int TURTLE_TERM_WIDTH = 39;
-    public static final int TURTLE_TERM_HEIGHT = 13;
+    public static final int TURTLE_TERM_WIDTH = 47;
+    public static final int TURTLE_TERM_HEIGHT = 16;
 
     public static final int DEFAULT_POCKET_TERM_WIDTH = 26;
     public static final int DEFAULT_POCKET_TERM_HEIGHT = 20;

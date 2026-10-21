@@ -83,6 +83,16 @@ public class ComputerPeripheral implements IPeripheral {
     }
 
     /**
+     * Get the other computer's persistent UUID, including while it is powered off.
+     *
+     * @return The device UUID.
+     */
+    @LuaFunction(mainThread = true)
+    public final String getUUID() {
+        return owner.getComputerUUID().toString();
+    }
+
+    /**
      * Determine if the other computer is on.
      *
      * @return If the computer is on.

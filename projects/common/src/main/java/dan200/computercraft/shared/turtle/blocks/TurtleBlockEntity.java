@@ -82,6 +82,7 @@ public class TurtleBlockEntity extends AbstractComputerBlockEntity implements Ba
     protected ServerComputer createComputer(int id) {
         var computer = new ServerComputer((ServerLevel) getLevel(), getBlockPos(), ServerComputer.properties(id, getFamily())
             .label(getLabel())
+            .uuid(getComputerUUID())
             .terminalSize(new TerminalSize(Config.TURTLE_TERM_WIDTH, Config.TURTLE_TERM_HEIGHT))
             .storageCapacity(storageCapacity)
             .addComponent(ComputerComponents.TURTLE, brain)

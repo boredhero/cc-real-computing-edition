@@ -11,6 +11,15 @@ import org.jspecify.annotations.Nullable;
 
 public interface ComputerEnvironment {
     /**
+     * Get the persistent device identity, when the host supports one.
+     *
+     * @return The UUID, or null for hosts without persistent identities.
+     */
+    default java.util.@Nullable UUID getComputerUUID() {
+        return null;
+    }
+
+    /**
      * Get the current in-game day.
      *
      * @return The current day.

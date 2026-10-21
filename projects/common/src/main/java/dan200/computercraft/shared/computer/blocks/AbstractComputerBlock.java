@@ -50,6 +50,14 @@ public abstract class AbstractComputerBlock<T extends AbstractComputerBlockEntit
     }
 
     @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moving) {
+        if (!state.is(newState.getBlock()) && !level.isClientSide && level.getBlockEntity(pos) instanceof AbstractComputerBlockEntity computer) {
+            computer.releaseComputerUUID();
+        }
+        super.onRemove(state, level, pos, newState, moving);
+    }
+
+    @Override
     protected boolean isSignalSource(BlockState state) {
         return true;
     }

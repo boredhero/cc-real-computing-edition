@@ -12,6 +12,7 @@ import dan200.computercraft.core.computer.ComputerSide;
 import dan200.computercraft.impl.BundledRedstone;
 import dan200.computercraft.shared.ModRegistry;
 import dan200.computercraft.shared.computer.core.ComputerFamily;
+import dan200.computercraft.shared.computer.core.ComputerIdentities;
 import dan200.computercraft.shared.computer.core.ComputerState;
 import dan200.computercraft.shared.computer.core.ServerComputer;
 import dan200.computercraft.shared.computer.core.ServerContext;
@@ -27,6 +28,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
 import net.minecraft.world.LockCode;
 import net.minecraft.world.Nameable;
@@ -50,6 +52,9 @@ public abstract class AbstractComputerBlockEntity extends BlockEntity implements
 
     private @Nullable UUID instanceID = null;
     private int computerID = -1;
+    private @Nullable UUID computerUUID;
+    private boolean identityClaimed;
+    private static final String NBT_UUID = "ComputerUUID";
     protected @Nullable String label = null;
     protected long storageCapacity = -1;
     private boolean on = false;
@@ -94,6 +99,7 @@ public abstract class AbstractComputerBlockEntity extends BlockEntity implements
 
     protected void serverTick() {
         if (getLevel().isClientSide) return;
+        getComputerUUID();
         if (computerID < 0 && !startOn) return; // Don't tick if we don't need a computer!
 
         var computer = createServerComputer();
@@ -147,6 +153,7 @@ public abstract class AbstractComputerBlockEntity extends BlockEntity implements
     public void saveAdditional(CompoundTag nbt, HolderLookup.Provider registries) {
         // Save ID, label and power state
         if (computerID >= 0) nbt.putInt(NBT_ID, computerID);
+        if (computerUUID != null) nbt.putUUID(NBT_UUID, computerUUID);
         if (label != null) nbt.putString(NBT_LABEL, label);
         if (storageCapacity > 0) nbt.putLong(NBT_CAPACITY, storageCapacity);
         nbt.putBoolean(NBT_ON, on);
@@ -169,6 +176,8 @@ public abstract class AbstractComputerBlockEntity extends BlockEntity implements
     protected void loadServer(CompoundTag nbt, HolderLookup.Provider registries) {
         // Load ID, label and power state
         computerID = nbt.contains(NBT_ID) ? nbt.getInt(NBT_ID) : -1;
+        computerUUID = nbt.hasUUID(NBT_UUID) ? nbt.getUUID(NBT_UUID) : null;
+        identityClaimed = false;
         label = nbt.contains(NBT_LABEL) ? nbt.getString(NBT_LABEL) : null;
         storageCapacity = nbt.contains(NBT_CAPACITY, Tag.TAG_ANY_NUMERIC) ? nbt.getLong(NBT_CAPACITY) : -1;
         on = startOn = nbt.getBoolean(NBT_ON);
@@ -181,6 +190,8 @@ public abstract class AbstractComputerBlockEntity extends BlockEntity implements
         super.applyImplicitComponents(component);
         label = DataComponentUtil.getCustomName(component.get(DataComponents.CUSTOM_NAME));
         computerID = NonNegativeId.getId(component.get(ModRegistry.DataComponents.COMPUTER_ID.get()));
+        computerUUID = component.get(ModRegistry.DataComponents.COMPUTER_UUID.get());
+        identityClaimed = false;
         storageCapacity = StorageCapacity.getOrDefault(component.get(ModRegistry.DataComponents.STORAGE_CAPACITY.get()), -1);
         lockCode = component.getOrDefault(DataComponents.LOCK, LockCode.NO_LOCK);
     }
@@ -200,6 +211,7 @@ public abstract class AbstractComputerBlockEntity extends BlockEntity implements
     @OverridingMethodsMustInvokeSuper
     protected void collectSafeComponents(DataComponentMap.Builder builder) {
         builder.set(ModRegistry.DataComponents.COMPUTER_ID.get(), NonNegativeId.of(computerID));
+        builder.set(ModRegistry.DataComponents.COMPUTER_UUID.get(), computerUUID);
         builder.set(DataComponents.CUSTOM_NAME, label == null ? null : Component.literal(label));
         builder.set(ModRegistry.DataComponents.STORAGE_CAPACITY.get(), storageCapacity > 0 ? new StorageCapacity(storageCapacity) : null);
     }
@@ -209,6 +221,7 @@ public abstract class AbstractComputerBlockEntity extends BlockEntity implements
     public void removeComponentsFromTag(CompoundTag tag) {
         super.removeComponentsFromTag(tag);
         tag.remove(NBT_ID);
+        tag.remove(NBT_UUID);
         tag.remove(NBT_LABEL);
         tag.remove(NBT_CAPACITY);
         tag.remove(LockCode.TAG_LOCK);
@@ -401,7 +414,31 @@ public abstract class AbstractComputerBlockEntity extends BlockEntity implements
         return family;
     }
 
+    /**
+     * Get or migrate the persistent device identity. Call on the server thread.
+     *
+     * @return The device UUID, distinct from its runtime instance UUID.
+     */
+    public final UUID getComputerUUID() {
+        var level = (ServerLevel) getLevel();
+        if (!identityClaimed) {
+            var previous = computerUUID;
+            computerUUID = ComputerIdentities.get(level).claim(computerUUID, ComputerIdentities.location(level, getBlockPos()));
+            identityClaimed = true;
+            if (!computerUUID.equals(previous)) BlockEntityHelpers.updateBlock(this);
+        }
+        return Objects.requireNonNull(computerUUID);
+    }
+
+    public final void releaseComputerUUID() {
+        if (getLevel() instanceof ServerLevel level) {
+            ComputerIdentities.get(level).release(computerUUID, ComputerIdentities.location(level, getBlockPos()));
+            identityClaimed = false;
+        }
+    }
+
     public final ServerComputer createServerComputer() {
+        getComputerUUID();
         var server = getLevel().getServer();
         if (server == null) throw new IllegalStateException("Cannot access server computer on the client.");
 
@@ -443,6 +480,7 @@ public abstract class AbstractComputerBlockEntity extends BlockEntity implements
         // We need this for pick block on the client side.
         var nbt = super.getUpdateTag(registries);
         if (computerID >= 0) nbt.putInt(NBT_ID, computerID);
+        if (computerUUID != null) nbt.putUUID(NBT_UUID, computerUUID);
         if (label != null) nbt.putString(NBT_LABEL, label);
         if (storageCapacity > 0) nbt.putLong(NBT_CAPACITY, storageCapacity);
         return nbt;
@@ -450,11 +488,20 @@ public abstract class AbstractComputerBlockEntity extends BlockEntity implements
 
     protected void loadClient(CompoundTag nbt, HolderLookup.Provider registries) {
         computerID = nbt.contains(NBT_ID) ? nbt.getInt(NBT_ID) : -1;
+        computerUUID = nbt.hasUUID(NBT_UUID) ? nbt.getUUID(NBT_UUID) : null;
+        identityClaimed = false;
         label = nbt.contains(NBT_LABEL) ? nbt.getString(NBT_LABEL) : null;
         storageCapacity = nbt.contains(NBT_CAPACITY, Tag.TAG_ANY_NUMERIC) ? nbt.getLong(NBT_CAPACITY) : -1;
     }
 
     protected void transferStateFrom(AbstractComputerBlockEntity copy) {
+        var uuid = copy.getComputerUUID();
+        releaseComputerUUID();
+        ComputerIdentities.get((ServerLevel) getLevel()).move(uuid,
+            ComputerIdentities.location((ServerLevel) copy.getLevel(), copy.getBlockPos()),
+            ComputerIdentities.location((ServerLevel) getLevel(), getBlockPos()));
+        computerUUID = uuid;
+        identityClaimed = true;
         if (copy.computerID != computerID || !Objects.equals(copy.instanceID, instanceID)) {
             unload();
             instanceID = copy.instanceID;

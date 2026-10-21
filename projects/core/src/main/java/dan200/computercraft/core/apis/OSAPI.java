@@ -229,6 +229,17 @@ public class OSAPI implements ILuaAPI {
     }
 
     /**
+     * Get the persistent device UUID. Numeric IDs remain available for compatibility.
+     *
+     * @return A UUID string, or nil if the host does not provide persistent identity.
+     */
+    @LuaFunction
+    public final @Nullable String getComputerUUID() {
+        var uuid = apiEnvironment.getComputerEnvironment().getComputerUUID();
+        return uuid == null ? null : uuid.toString();
+    }
+
+    /**
      * Returns the ID of the computer.
      *
      * @return The ID of the computer.
