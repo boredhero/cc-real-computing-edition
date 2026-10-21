@@ -5,7 +5,7 @@
 modLoader="javafml"
 loaderVersion="[1,)"
 
-issueTrackerURL="https://github.com/cc-tweaked/CC-Tweaked/issues"
+issueTrackerURL="https://github.com/boredhero/cc-real-computing-edition/issues"
 logoFile="pack.png"
 
 license="ComputerCraft Public License (https://raw.githubusercontent.com/dan200/ComputerCraft/master/LICENSE)"
@@ -13,14 +13,14 @@ license="ComputerCraft Public License (https://raw.githubusercontent.com/dan200/
 [[mods]]
 modId="computercraft"
 version="${file.jarVersion}"
-displayName="CC: Tweaked"
-displayURL="https://tweaked.cc"
-updateJSONURL = "https://api.modrinth.com/updates/cc-tweaked/forge_updates.json"
+displayName="CC: Real Computing Edition"
+displayURL="https://github.com/boredhero/cc-real-computing-edition"
 
 credits="Created by Daniel Ratcliffe (@DanTwoHundred)"
 authors="Daniel Ratcliffe, Aaron Mills, SquidDev"
 description='''
-CC: Tweaked is a fork of ComputerCraft, adding programmable computers, turtles and more to Minecraft.
+An independent CC: Tweaked fork targeting more capable computation and turtle automation.
+Initial development baseline; new compute and interaction APIs are under development.
 '''
 
 [[dependencies.computercraft]]

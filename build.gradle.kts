@@ -22,8 +22,8 @@ val mcVersion: String by extra
 
 githubRelease {
     token(findProperty("githubApiKey") as String? ?: "")
-    owner = "cc-tweaked"
-    repo = "CC-Tweaked"
+    owner = "boredhero"
+    repo = "cc-real-computing-edition"
     targetCommitish = cct.gitBranch
 
     tagName = "v$mcVersion-$modVersion"

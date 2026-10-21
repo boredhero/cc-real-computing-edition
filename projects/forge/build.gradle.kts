@@ -272,3 +272,6 @@ modPublishing {
 
 // TODO: Remove once https://github.com/modrinth/minotaur/pull/72 is merged.
 modrinth { loaders = listOf("neoforge") }
+
+// Distinguish the replacement mod from upstream artifacts.
+base.archivesName = "cc-real-computing-edition-1.21.1"

@@ -1,76 +1,46 @@
-<!--
-SPDX-FileCopyrightText: 2017 The CC: Tweaked Developers
+<!-- SPDX-FileCopyrightText: 2026 boredhero
+SPDX-License-Identifier: MPL-2.0 -->
 
-SPDX-License-Identifier: MPL-2.0
--->
+# CC: Real Computing Edition
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./doc/logo-darkmode.png">
-  <source media="(prefers-color-scheme: light)" srcset="./doc/logo.png">
-  <img alt="CC: Tweaked" src="./doc/logo.png">
-</picture>
+A fork of [CC: Tweaked](https://github.com/cc-tweaked/CC-Tweaked) for ambitious Minecraft automation: independent background computation, configurable compute resources, and much broader turtle interaction with the world.
 
-[![Current build status](https://github.com/cc-tweaked/CC-Tweaked/workflows/Build/badge.svg)](https://github.com/cc-tweaked/CC-Tweaked/actions "Current build status")
-[![Download CC: Tweaked on Modrinth](https://img.shields.io/static/v1?label=Download&color=00AF5C&logoColor=00AF5C&logo=Modrinth&message=CC:%20Tweaked)][Modrinth]
+The purpose is to make programmable computers and turtles substantially more capable, so complex automation is limited less by the mod's abstractions.
 
-CC: Tweaked is a mod for Minecraft which adds programmable computers, turtles and more to the game. A fork of the
-much-beloved [ComputerCraft], it continues its legacy with improved performance and stability, along with a wealth of
-new features.
+## Status
 
-CC: Tweaked can be installed from [Modrinth]. It runs on both [Minecraft Forge] and [Fabric].
+**Development baseline.** This initial fork builds the matching upstream release with fork branding. Independent Lua workers, native acceleration, and expanded interaction APIs are planned, not implemented yet. Existing CC programs retain upstream behavior.
 
-## Contributing
-Any contribution is welcome, be that using the mod, reporting bugs or contributing code. If you want to get started
-developing the mod, [check out the instructions here](CONTRIBUTING.md#developing).
+## Target
 
-## Community
-If you need help getting started with CC: Tweaked, want to show off your latest project, or just want to chat about
-ComputerCraft, do check out our [GitHub discussions page][GitHub discussions]! There's also a fairly populated,
-albeit quiet IRC channel on [EsperNet], if that's more your cup of tea. You can join `#computercraft` through your
-desktop client, or online using [KiwiIRC].
+- FTB Evolution 1.45.1 deployment
+- Minecraft **1.21.1**
+- NeoForge **21.1.250**
+- CC: Tweaked **1.120.2**, upstream tag `v1.21.1-1.120.2`
+- Upstream commit `c7ccc20c756bdd437b09908840485a0e15dc7d7b`
+- Java **21** runtime; Java **25** Gradle daemon (as required by this upstream build)
 
-We also host fairly comprehensive documentation at [tweaked.cc](https://tweaked.cc/ "The CC: Tweaked website").
+These Minecraft, loader, and CC versions were verified against the target server on 2026-10-20. The development branch is `main`.
 
-## Using
-CC: Tweaked is hosted on my maven repo, and so is relatively simple to depend on. You may wish to add a soft (or hard)
-dependency in your `mods.toml` file, with the appropriate version bounds, to ensure that API functionality you depend
-on is present.
+## Build
 
-```groovy
-repositories {
-  maven {
-    url "https://maven.squiddev.cc"
-    content {
-      includeGroup("cc.tweaked")
-    }
-  }
-}
-
-dependencies {
-  // Vanilla (i.e. for multi-loader systems)
-  compileOnly("cc.tweaked:cc-tweaked-$mcVersion-common-api:$cctVersion")
-
-  // Forge Gradle
-  compileOnly("cc.tweaked:cc-tweaked-$mcVersion-forge-api:$cctVersion")
-  runtimeOnly("cc.tweaked:cc-tweaked-$mcVersion-forge:$cctVersion")
-
-  // Fabric Loom
-  modCompileOnly("cc.tweaked:cc-tweaked-$mcVersion-fabric-api:$cctVersion")
-  modRuntimeOnly("cc.tweaked:cc-tweaked-$mcVersion-fabric:$cctVersion")
-}
+```sh
+./gradlew :forge:assemble :core:test :forge:test
 ```
 
-You should also be careful to only use classes within the `dan200.computercraft.api` package. Non-API classes are
-subject to change at any point. If you depend on functionality outside the API (or need to mixin to CC:T), please file
-an issue to let me know!
+The `forge` project targets **NeoForge** on this Minecraft version. The distributable is `projects/forge/build/libs/cc-real-computing-edition-1.21.1-1.120.2-rce.0.1.0-SNAPSHOT.jar`; do not install the sources or API jars.
 
-We bundle the API sources with the jar, so documentation should be easily viewable within your editor. Alternatively,
-the generated documentation [can be browsed online](https://tweaked.cc/javadoc/).
+This is a replacement for CC: Tweaked, retaining the `computercraft` mod ID, existing block IDs and public API packages for compatibility. Install only one of the two mods. Test with a copy of your world and matching client/server builds before deployment; compatibility with the full pack is not yet certified.
 
-[computercraft]: https://github.com/dan200/ComputerCraft "ComputerCraft on GitHub"
-[modrinth]: https://modrinth.com/mod/gu7yAYhd "Download CC: Tweaked from Modrinth"
-[Minecraft Forge]: https://files.minecraftforge.net/ "Download Minecraft Forge."
-[Fabric]: https://fabricmc.net/use/installer/ "Download Fabric."
-[GitHub Discussions]: https://github.com/cc-tweaked/CC-Tweaked/discussions
-[EsperNet]: https://www.esper.net/
-[KiwiIRC]: https://kiwiirc.com/nextclient/#irc://irc.esper.net:+6697/#computercraft "#computercraft on EsperNet"
+## Direction
+
+1. Independent compute workers with isolated Lua state, message passing, cancellation, and results delivered as events. CPU-heavy jobs should continue independently of game ticks.
+2. Server-configurable CPU, memory and queue budgets with useful profiling. Expensive computation should remain responsive without manual yield calls throughout algorithms.
+3. Rich player-style turtle interactions: explicit target faces, held-item use, sneaking, entity interactions, and container operations. Preserve normal server interaction hooks and item accounting.
+4. Benchmark Java/Cobalt against native options such as LuaJIT or targeted C kernels before selecting a native backend. Native code must justify its compatibility, packaging and maintenance costs with measured improvements.
+
+See [the architecture and milestone plan](doc/real-computing.md). The first representative workload is a farm controller performing 3D route planning while handling fleet messages and rendering dashboards.
+
+## Upstream and licensing
+
+This is an independent fork, not an official CC: Tweaked release. Original authorship and licenses are preserved; see [LICENSES](LICENSES), file-level SPDX notices, and [the upstream README](README.upstream.md). Existing API documentation is at [tweaked.cc](https://tweaked.cc/).

@@ -36,4 +36,5 @@ modrinth {
     syncBodyFrom = provider { rootProject.file("doc/mod-page.md").readText() }
 }
 
-tasks.publish { dependsOn(tasks.modrinth) }
+// This fork has no Modrinth project. Never publish to the upstream project.
+tasks.modrinth { enabled = false }
