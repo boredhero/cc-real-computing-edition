@@ -192,13 +192,22 @@ public class PocketComputerItem extends Item {
                 }
             }
         }
+        var identities = ComputerIdentities.get(holder.level());
         var copied = false;
         if (existing != null) {
             var brain = existing.getBrain();
-            copied = brain.holder().item() != stack && brain.holder().isValid(existing);
+            copied = (brain.holder().item() != stack && brain.holder().isValid(existing))
+                || !identities.isPocketTokenCurrent(existing.getComputerUUID(), stack.get(ModRegistry.DataComponents.POCKET_TOKEN.get()));
             if (!copied) {
+                // A transfer may reuse an orphaned runtime before its keep-alive expires. Rotate here too,
+                // otherwise a saved pre-transfer copy could reuse this identity after that runtime closes.
+                var transferred = brain.holder().item() != stack;
+                if (transferred) {
+                    var claim = identities.claimPocket(existing.getComputerUUID(), stack.get(ModRegistry.DataComponents.POCKET_TOKEN.get()), false);
+                    stack.set(ModRegistry.DataComponents.POCKET_TOKEN.get(), claim.token());
+                }
                 var reference = new ServerComputerReference(registry.getSessionID(), existing.getInstanceUUID());
-                var changed = !java.util.Objects.equals(requested, existing.getComputerUUID())
+                var changed = transferred || !java.util.Objects.equals(requested, existing.getComputerUUID())
                     || !reference.equals(stack.get(ModRegistry.DataComponents.COMPUTER.get()));
                 stack.set(ModRegistry.DataComponents.COMPUTER_UUID.get(), existing.getComputerUUID());
                 stack.set(ModRegistry.DataComponents.COMPUTER.get(), reference);
@@ -208,8 +217,9 @@ public class PocketComputerItem extends Item {
             }
             requested = existing.getComputerUUID();
         }
-        var identities = ComputerIdentities.get(holder.level());
-        var uuid = copied && requested != null ? identities.copy(requested, "pocket") : identities.claim(requested, "pocket");
+        var claim = identities.claimPocket(requested, stack.get(ModRegistry.DataComponents.POCKET_TOKEN.get()), copied);
+        var uuid = claim.uuid();
+        stack.set(ModRegistry.DataComponents.POCKET_TOKEN.get(), claim.token());
         stack.set(ModRegistry.DataComponents.COMPUTER_UUID.get(), uuid);
 
         var computerID = NonNegativeId.getOrCreate(server, stack, ModRegistry.DataComponents.COMPUTER_ID.get(), IDAssigner.COMPUTER);
@@ -242,7 +252,8 @@ public class PocketComputerItem extends Item {
         if (computer == null) return null;
 
         var brain = computer.getBrain();
-        if (brain.holder().item() != stack && brain.holder().isValid(computer)) return getOrCreateBrain(holder, stack);
+        if (brain.holder().item() != stack
+            || !ComputerIdentities.get(holder.level()).isPocketTokenCurrent(computer.getComputerUUID(), stack.get(ModRegistry.DataComponents.POCKET_TOKEN.get()))) return getOrCreateBrain(holder, stack);
         brain.updateHolder(holder);
         return brain;
     }

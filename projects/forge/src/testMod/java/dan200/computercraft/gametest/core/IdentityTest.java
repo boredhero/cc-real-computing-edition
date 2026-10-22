@@ -115,4 +115,68 @@ public class IdentityTest {
         helper.succeed();
     }
 
+    @GameTest(template = "default")
+    public void offlinePocketCopiesHaveIndependentStorage(GameTestHelper helper) throws IOException {
+        var pos = helper.absolutePos(new BlockPos(1, 2, 1));
+        var item = ModRegistry.Items.POCKET_COMPUTER_NORMAL.get();
+        var firstEntity = new ItemEntity(helper.getLevel(), pos.getX(), pos.getY(), pos.getZ(), new ItemStack(item));
+        helper.getLevel().addFreshEntity(firstEntity);
+        var firstHolder = new PocketHolder.ItemEntityHolder(firstEntity);
+        var first = item.getOrCreateBrain(firstHolder, firstEntity.getItem());
+        var uuid = first.computer().getComputerUUID();
+        var disk = first.computer().createRootMount();
+        try (var channel = disk.openFile("data", dan200.computercraft.api.filesystem.MountConstants.WRITE_OPTIONS)) {
+            channel.write(ByteBuffer.wrap("offline".getBytes(StandardCharsets.UTF_8)));
+        }
+        first.computer().close();
+        var saved = (net.minecraft.nbt.CompoundTag) firstEntity.getItem().save(helper.getLevel().registryAccess());
+        firstEntity.setItem(ItemStack.parseOptional(helper.getLevel().registryAccess(), saved));
+        var restarted = item.getOrCreateBrain(firstHolder, firstEntity.getItem());
+        helper.assertTrue(java.util.Objects.equals(uuid, restarted.computer().getComputerUUID()), "First activation preserves UUID");
+        restarted.computer().close();
+        firstEntity.discard();
+
+        // Neither source runtime is alive when a separately deserialised offline copy starts.
+        var secondEntity = new ItemEntity(helper.getLevel(), pos.getX() + 1, pos.getY(), pos.getZ(), ItemStack.parseOptional(helper.getLevel().registryAccess(), saved));
+        helper.getLevel().addFreshEntity(secondEntity);
+        var second = item.getOrCreateBrain(new PocketHolder.ItemEntityHolder(secondEntity), secondEntity.getItem());
+        helper.assertTrue(!java.util.Objects.equals(uuid, second.computer().getComputerUUID()), "Offline copy gets independent UUID");
+        var copyDisk = second.computer().createRootMount();
+        helper.assertTrue(copyDisk.exists("data"), "Offline copy inherits files");
+        copyDisk.delete("data");
+        helper.assertTrue(disk.exists("data"), "Offline copy cannot delete source files");
+        second.computer().close();
+        var explicit = dan200.computercraft.api.ComputerCraftAPI.copyPocketComputer(helper.getLevel(), secondEntity.getItem());
+        var thirdEntity = new ItemEntity(helper.getLevel(), pos.getX() + 2, pos.getY(), pos.getZ(), explicit);
+        helper.getLevel().addFreshEntity(thirdEntity);
+        var third = item.getOrCreateBrain(new PocketHolder.ItemEntityHolder(thirdEntity), thirdEntity.getItem());
+        helper.assertTrue(!java.util.Objects.equals(second.computer().getComputerUUID(), third.computer().getComputerUUID()), "Explicit copy is independent before either copy reactivates");
+        helper.succeed();
+    }
+
+    @GameTest(template = "default")
+    public void pocketTransferInvalidatesOfflineCopies(GameTestHelper helper) {
+        var pos = helper.absolutePos(new BlockPos(1, 2, 1));
+        var item = ModRegistry.Items.POCKET_COMPUTER_NORMAL.get();
+        var original = new ItemEntity(helper.getLevel(), pos.getX(), pos.getY(), pos.getZ(), new ItemStack(item));
+        helper.getLevel().addFreshEntity(original);
+        var brain = item.getOrCreateBrain(new PocketHolder.ItemEntityHolder(original), original.getItem());
+        var uuid = brain.computer().getComputerUUID();
+        var snapshot = original.getItem().copy();
+        var transferred = original.getItem().copy();
+        original.setItem(ItemStack.EMPTY);
+        var moved = new ItemEntity(helper.getLevel(), pos.getX() + 1, pos.getY(), pos.getZ(), transferred);
+        helper.getLevel().addFreshEntity(moved);
+        helper.assertTrue(item.getBrain(new PocketHolder.ItemEntityHolder(moved), moved.getItem()) == brain, "Transfer keeps live runtime");
+        helper.assertTrue(java.util.Objects.equals(uuid, moved.getItem().get(ModRegistry.DataComponents.COMPUTER_UUID.get())), "Transfer keeps UUID");
+        helper.assertTrue(!java.util.Objects.equals(snapshot.get(ModRegistry.DataComponents.POCKET_TOKEN.get()), moved.getItem().get(ModRegistry.DataComponents.POCKET_TOKEN.get())), "Transfer rotates token even without a new runtime");
+        brain.computer().close();
+        moved.discard();
+        var copied = new ItemEntity(helper.getLevel(), pos.getX() + 2, pos.getY(), pos.getZ(), snapshot);
+        helper.getLevel().addFreshEntity(copied);
+        var clone = item.getOrCreateBrain(new PocketHolder.ItemEntityHolder(copied), copied.getItem());
+        helper.assertTrue(!java.util.Objects.equals(uuid, clone.computer().getComputerUUID()), "Pre-transfer saved copy splits with no source runtime alive");
+        helper.succeed();
+    }
+
 }

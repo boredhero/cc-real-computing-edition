@@ -23,6 +23,7 @@ An independent CC: Tweaked fork targeting more capable computation and turtle au
 Independent background Lua compute workers with message passing and configurable budgets.
 Turtle block/entity vision, diagonal block actions, entity interactions, container menus and held-item charging.
 Persistent computer, turtle and pocket UUIDs with UUID rednet and independent clone storage.
+Public machine adapters expose state and named actions; offline pocket copies have independent identities.
 Denser computer/turtle terminal UIs.
 '''
 

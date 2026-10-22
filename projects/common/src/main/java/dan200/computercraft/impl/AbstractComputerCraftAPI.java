@@ -67,6 +67,23 @@ public abstract class AbstractComputerCraftAPI implements ComputerCraftAPIServic
     }
 
     @Override
+    public final void registerTurtleInteraction(ResourceLocation id, dan200.computercraft.api.turtle.TurtleInteraction adapter) {
+        TurtleInteractions.register(id, adapter);
+    }
+
+    @Override
+    public final ItemStack copyPocketComputer(net.minecraft.server.level.ServerLevel level, ItemStack source) {
+        if (!level.getServer().isSameThread()) throw new IllegalStateException("Pocket copying must run on the server thread");
+        if (!(source.getItem() instanceof dan200.computercraft.shared.pocket.items.PocketComputerItem)) throw new IllegalArgumentException("Expected a pocket computer");
+        var copy = source.copy();
+        copy.remove(ModRegistry.DataComponents.COMPUTER.get());
+        var claim = dan200.computercraft.shared.computer.core.ComputerIdentities.get(level).claimPocket(source.get(ModRegistry.DataComponents.COMPUTER_UUID.get()), null, true);
+        copy.set(ModRegistry.DataComponents.COMPUTER_UUID.get(), claim.uuid());
+        copy.set(ModRegistry.DataComponents.POCKET_TOKEN.get(), claim.token());
+        return copy;
+    }
+
+    @Override
     public final int createUniqueNumberedSaveDir(MinecraftServer server, String parentSubPath) {
         return ServerContext.get(server).getNextId(parentSubPath);
     }

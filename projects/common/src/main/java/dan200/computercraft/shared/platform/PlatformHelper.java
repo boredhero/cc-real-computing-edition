@@ -325,6 +325,14 @@ public interface PlatformHelper {
      */
     UseOnResult useOn(ServerPlayer player, ItemStack stack, BlockHitResult hit);
 
+    /**
+     * Check normal right-click block hooks without invoking item or block behavior.
+     * @param player The interacting player.
+     * @param hit The target face.
+     * @return Whether the adapter may proceed.
+     */
+    boolean canUseBlock(ServerPlayer player, BlockHitResult hit);
+
 
     final class Instance {
         static final @Nullable PlatformHelper INSTANCE;

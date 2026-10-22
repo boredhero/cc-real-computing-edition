@@ -226,6 +226,12 @@ public class PlatformHelperImpl implements PlatformHelper {
     }
 
     @Override
+    public boolean canUseBlock(ServerPlayer player, BlockHitResult hit) {
+        var event = CommonHooks.onRightClickBlock(player, InteractionHand.MAIN_HAND, hit.getBlockPos(), hit);
+        return !event.isCanceled() && !event.getUseBlock().isFalse();
+    }
+
+    @Override
     public UseOnResult useOn(ServerPlayer player, ItemStack stack, BlockHitResult hit) {
         var pos = hit.getBlockPos();
         var event = CommonHooks.onRightClickBlock(player, InteractionHand.MAIN_HAND, pos, hit);

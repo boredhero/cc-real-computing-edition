@@ -43,6 +43,34 @@ class ComputerIdentitiesTest {
     }
 
     @Test
+    void offlinePocketCopiesSplitAcrossRegistryReloads() {
+        var identities = new ComputerIdentities();
+        var original = identities.claimPocket(null, null, false);
+        var restored = ComputerIdentities.load(identities.save(new CompoundTag(), RegistryAccess.EMPTY), RegistryAccess.EMPTY);
+        var first = restored.claimPocket(original.uuid(), original.token(), false);
+        assertEquals(original.uuid(), first.uuid());
+        assertNotEquals(original.token(), first.token());
+        restored = ComputerIdentities.load(restored.save(new CompoundTag(), RegistryAccess.EMPTY), RegistryAccess.EMPTY);
+        var second = restored.claimPocket(original.uuid(), original.token(), false);
+        assertNotEquals(first.uuid(), second.uuid());
+        assertEquals(List.of(original.uuid()), restored.storageSources(second.uuid()));
+        assertEquals(first.uuid(), restored.claimPocket(first.uuid(), first.token(), false).uuid());
+        assertEquals(second.uuid(), restored.claimPocket(second.uuid(), second.token(), false).uuid());
+    }
+
+    @Test
+    void missingTokensMigrateOnceButCannotReclaimAnExistingPocket() {
+        var identities = new ComputerIdentities();
+        var legacy = identities.claim(null, "pocket");
+        var first = identities.claimPocket(legacy, null, false);
+        assertEquals(legacy, first.uuid());
+        assertNotEquals(legacy, identities.claimPocket(legacy, null, false).uuid());
+        assertNotEquals(legacy, identities.claimPocket(legacy, first.token(), true).uuid());
+        var block = identities.claim(null, "block");
+        assertNotEquals(block, identities.claimPocket(block, null, false).uuid());
+    }
+
+    @Test
     void cannotMoveAnotherClaim() {
         var identities = new ComputerIdentities();
         var uuid = identities.claim(null, "one");

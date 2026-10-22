@@ -21,6 +21,7 @@ import java.util.UUID;
 /** Persistent claims prevent copied blocks from impersonating another placed device, even in unloaded chunks. */
 public final class ComputerIdentities extends SavedData {
     private final Map<UUID, String> claims = new HashMap<>();
+    private final Map<UUID, UUID> pocketTokens = new HashMap<>();
     private final Map<UUID, UUID> storageSources = new HashMap<>();
 
     public static ComputerIdentities get(ServerLevel level) {
@@ -42,6 +43,36 @@ public final class ComputerIdentities extends SavedData {
         if (requested != null && !requested.equals(uuid)) storageSources.put(uuid, requested);
         if (!location.equals(claims.put(uuid, location))) setDirty();
         return uuid;
+    }
+
+    public boolean isPocketTokenCurrent(@Nullable UUID uuid, @Nullable UUID token) {
+        return !pocketTokens.containsKey(uuid) || pocketTokens.get(uuid).equals(token);
+    }
+
+    /**
+     * A persistent identity and its current mobile activation token.
+     * @param uuid The device identity.
+     * @param token The current activation token.
+     */
+    public record PocketClaim(UUID uuid, UUID token) {
+    }
+
+    /**
+     * Rotate the token when starting a new pocket runtime. A stale serialized item is a copy, even if no
+     * other runtime is alive. For indistinguishable copies, the first activated item retains the identity.
+     * Missing tokens are accepted only for identities which have never used tokens (legacy migration).
+     * @param requested The saved identity, if any.
+     * @param token The item's activation token, if any.
+     * @param copied Whether this is a known copy rather than a transfer.
+     * @return The claimed identity and replacement token.
+     */
+    public PocketClaim claimPocket(@Nullable UUID requested, @Nullable UUID token, boolean copied) {
+        var stale = requested != null && pocketTokens.containsKey(requested) && !pocketTokens.get(requested).equals(token);
+        var uuid = requested != null && (copied || stale) ? copy(requested, "pocket") : claim(requested, "pocket");
+        var next = UUID.randomUUID();
+        pocketTokens.put(uuid, next);
+        setDirty();
+        return new PocketClaim(uuid, next);
     }
 
     /**
@@ -94,6 +125,10 @@ public final class ComputerIdentities extends SavedData {
                 identities.storageSources.put(source.getUUID("UUID"), source.getUUID("Source"));
             }
         }
+        for (var entry : tag.getList("PocketTokens", Tag.TAG_COMPOUND)) {
+            var pocket = (CompoundTag) entry;
+            if (pocket.hasUUID("UUID") && pocket.hasUUID("Token")) identities.pocketTokens.put(pocket.getUUID("UUID"), pocket.getUUID("Token"));
+        }
         return identities;
     }
 
@@ -115,6 +150,14 @@ public final class ComputerIdentities extends SavedData {
             sources.add(entry);
         });
         tag.put("StorageSources", sources);
+        var pockets = new ListTag();
+        pocketTokens.forEach((uuid, token) -> {
+            var entry = new CompoundTag();
+            entry.putUUID("UUID", uuid);
+            entry.putUUID("Token", token);
+            pockets.add(entry);
+        });
+        tag.put("PocketTokens", pockets);
         return tag;
     }
 }

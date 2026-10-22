@@ -1,6 +1,6 @@
 # Persistent identity and denser terminal UIs
 
-Available in `1.120.2-rce.0.5.0-SNAPSHOT` for Minecraft 1.21.1 / NeoForge.
+Available in `1.120.2-rce.0.7.0-SNAPSHOT` for Minecraft 1.21.1 / NeoForge.
 
 ## Device UUIDs
 
@@ -44,10 +44,29 @@ Pockets claim an identity when first ticked in a player's inventory or accessed.
 A copied item carrying the same UUID or runtime reference as an active pocket gets
 a fresh UUID and independent running computer. Moving the original to another
 slot, player, item entity or lectern preserves its identity and running state.
-Copies of pockets must be activated while the original is active to be recognised
-as separate devices. Byte-identical items hidden in unloaded inventories cannot
-be distinguished from a moved original: until both are active, they can still
-refer to the same UUID and files. Whole-world copies likewise preserve identities.
+A persistent activation token now separates offline copies too. Whenever a new
+pocket runtime starts (or a transfer reuses a still-live runtime), the item receives a fresh token and the identity registry
+records it. A separately saved item with an older (or missing) token receives a
+new UUID and independent storage. The registry survives server restarts; an
+ordinary transfer, save/reload or upgrade carrying the latest components retains
+its UUID. Legacy pockets without tokens migrate on their first activation.
+
+For byte-identical copies, **the first activated copy keeps the existing UUID**;
+subsequent copies split when activated, even if the first is already offline.
+There is no way to identify which identical item a person considers the original.
+In particular, if a hidden original has not been activated since duplication,
+the first copy may use its existing files until the hidden item is activated and
+split. Whole-world copies retain identities. Tokens are duplicate detection,
+not authentication or a transaction spanning world/player saves: restore the
+identity registry and inventories together, and preserve both UUID and token
+components in transfer/upgrade recipes.
+
+Mod authors performing deliberate duplication should use
+`ComputerCraftAPI.copyPocketComputer(serverLevel, sourceStack)` on the server
+thread. It returns an independent item with a fresh UUID immediately, preserves
+label/configuration, removes the runtime reference and records the disk source.
+Do not use it for transfers or upgrades. Copying files still occurs at first boot,
+not at the API call. This explicit path also avoids the first-activation ambiguity.
 
 ## UUID storage and migration
 

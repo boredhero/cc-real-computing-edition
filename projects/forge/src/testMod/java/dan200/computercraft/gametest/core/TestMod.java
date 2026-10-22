@@ -23,6 +23,7 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 public class TestMod {
     public TestMod(IEventBus modBus) {
         TestHooks.init();
+        TurtleAdapterTest.register();
 
         var bus = NeoForge.EVENT_BUS;
         bus.addListener(EventPriority.LOW, (ServerStartedEvent e) -> TestHooks.onServerStarted(e.getServer()));
@@ -56,6 +57,8 @@ public class TestMod {
             event.register(TargetedProtectionTest.class);
             event.register(IdentityTest.class);
             event.register(TurtleInteractionsTest.class);
+            event.register(TurtleAdapterTest.class);
+            event.register(TurtleAdapterLuaTest.class);
         });
     }
 

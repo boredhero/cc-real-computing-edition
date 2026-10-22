@@ -44,14 +44,14 @@ diagonal `digAt`/`placeAt`/`useAt` with optional faces and sneaking, UUID-target
 `attackEntity`/`useEntity`/`collectEntity`, menu-based `inspectInventoryAt` /
 `pushItemsAt` / `pullItemsAt`, and tick-driven `useItem` with cancellation.
 Reach, visibility, owner identity and loader protection hooks are checked at
-execution. Detailed snapshot diffs, GUI buttons and mod-specific adapters remain
+execution. A public adapter API now exposes machine state and named GUI actions. Detailed snapshot diffs and additional machine adapters remain
 future work. See [the interaction guide](turtle-vision.md).
 
 Build on `TurtlePlayer` and existing `TurtlePlaceCommand` interaction paths. Existing place operations already invoke some item/block/entity interactions; audit their limits before duplicating them.
 
 Prioritize explicit item use against a selected face and hit position, sneak interactions, empty-hand interactions, entity targeting, and container operations. Add diagonal reach: turtles should be able to explicitly target diagonal blocks for inspection and interaction, with documented reach and line-of-sight rules. This concerns reach; diagonal movement is a separate capability. Diagonal harvesting must not require breaking and restoring a neighboring crop as a stepping stone.
 
-Add built-in player-like vision: query the blocks and entities a turtle sees within a requested radius, with positions, block states, range, occlusion and line-of-sight rules. Prefer cached observations with change events or incremental updates so programs do not need periodic full environmental scans. Snapshot collection remains on the server thread; visibility processing and planning can use compute workers. Define observation age, unloaded chunks and update costs explicitly. This should not require a separate scanner peripheral. Tick-driven item holding, entity interactions, explicit faces, sneaking and normal container menu operations are now implemented. Equipment, GUI buttons and mod-specific machine workflows need further adapters.
+Add built-in player-like vision: query the blocks and entities a turtle sees within a requested radius, with positions, block states, range, occlusion and line-of-sight rules. Prefer cached observations with change events or incremental updates so programs do not need periodic full environmental scans. Snapshot collection remains on the server thread; visibility processing and planning can use compute workers. Define observation age, unloaded chunks and update costs explicitly. This should not require a separate scanner peripheral. Tick-driven item holding, entity interactions, explicit faces, sneaking and normal container menu operations are now implemented. Machine authors can expose GUI controls through the public interaction adapter API. Equipment and specific machine integrations remain future work.
 
 Keep server event hooks, ownership/claim checks, reach and item consumption consistent with normal gameplay. Return structured outcomes distinguishing unsupported actions, denied interactions and ordinary failure. Serialize conflicting actions by a single turtle; a compute worker must not concurrently mutate its inventory or pose.
 

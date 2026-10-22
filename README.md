@@ -9,7 +9,9 @@ The purpose is to make programmable computers and turtles substantially more cap
 
 ## Status
 
-**Experimental compute, turtle and identity release.** Independent background Lua jobs are implemented through `compute` (also `require("cc.compute")`). Jobs use separate Lua states on a dedicated thread pool, support cancellation, and return copied results without blocking the owner. Turtles support block/entity vision, UUID-targeted entity interaction, diagonal block actions with face and sneak options, menu-based container transfers, and tick-driven held-item use. Computer blocks, turtles and pockets have persistent UUIDs, UUID-addressed rednet and independent UUID storage. Computer and turtle terminal UIs are denser. Native acceleration and custom mod GUI adapters remain planned. Numeric rednet remains compatible; internal computer files migrate to UUID directories.
+**Experimental compute, turtle and identity release.** Independent background Lua jobs are implemented through `compute` (also `require("cc.compute")`). Jobs use separate Lua states on a dedicated thread pool, support cancellation, and return copied results without blocking the owner. Turtles support block/entity vision, UUID-targeted entity interaction, diagonal block actions with face and sneak options, menu-based container transfers, and tick-driven held-item use. Computer blocks, turtles and pockets have persistent UUIDs, UUID-addressed rednet and independent UUID storage. Computer and turtle terminal UIs are denser. A public machine interaction API exposes mod-defined state and named actions. Offline pocket copies separate using persistent activation tokens. Native acceleration remains planned. Numeric rednet remains compatible; internal computer files migrate to UUID directories.
+
+Mod authors can use the [machine adapter API and compiled example](doc/turtle-adapters.md) to expose GUI controls to turtles.
 
 Read [the compute API and examples](doc/compute.md), or run `compute_demo` in CraftOS. See [turtle vision and targeted interaction examples](doc/turtle-vision.md) for `observe`, `digAt`, `placeAt` and `useAt`.
 
@@ -30,13 +32,13 @@ These Minecraft, loader, and CC versions were verified against the target server
 ./gradlew :forge:assemble :core:test :forge:test
 ```
 
-The `forge` project targets **NeoForge** on this Minecraft version. The distributable is `projects/forge/build/libs/cc-real-computing-edition-1.21.1-1.120.2-rce.0.6.0-SNAPSHOT.jar`; do not install the sources or API jars.
+The `forge` project targets **NeoForge** on this Minecraft version. The distributable is `projects/forge/build/libs/cc-real-computing-edition-1.21.1-1.120.2-rce.0.7.0-SNAPSHOT.jar`; do not install the sources or API jars.
 
 This is a replacement for CC: Tweaked, retaining the `computercraft` mod ID, existing block IDs and public API packages for compatibility. Install only one of the two mods. Test with a copy of your world and matching client/server builds before deployment; compatibility with the full pack is not yet certified.
 
 ## Validation
 
-On 2026-10-21, the entity/interaction milestone passed 1,632 core unit tests (13 skipped), 18 NeoForge unit tests, and 124 of 125 required NeoForge game tests in the final run. The remaining failure was the existing intermittent double-chest test; all 125 passed in the preceding run. One optional treasure-loot test also failed. Eight new game tests cover visible players/mobs/items, entity occlusion and change events, feeding/shearing/pickup, full inventories, attack/use protection, explicit faces/sneaking, locked/protected chest transfers, real-tick bow release, cancellation and consumable completion. Java style, Lua lint and changelog checks passed. Builds use Temurin JDK 25 and target Minecraft 1.21.1 / NeoForge 21.1.250. Visual UI inspection, full-pack gameplay and deployment to the Evolution server remain untested.
+On 2026-10-21, the adapter/identity cleanup milestone passed 1,632 core unit tests (13 skipped), 22 NeoForge unit tests, and all 130 required NeoForge game tests. The double-chest regression passed four consecutive suite runs after replacing its fixed delay with bounded retries of cancelled calls and final inventory assertions. New tests cover offline pocket copies, saved activation tokens, live-runtime transfers, independent storage, adapter discovery/actions, denied and hidden targets, queued Lua entry points, and bounded immutable data. One existing optional treasure-loot test still fails. Java style and changelog checks passed; the adapter example compiles for both NeoForge and Fabric, and the NeoForge distributable builds successfully. Builds use Temurin JDK 25 and target Minecraft 1.21.1 / NeoForge 21.1.250. Fabric runtime behavior, visual UI inspection, full-pack gameplay and deployment to the Evolution server remain untested.
 
 ## Direction
 

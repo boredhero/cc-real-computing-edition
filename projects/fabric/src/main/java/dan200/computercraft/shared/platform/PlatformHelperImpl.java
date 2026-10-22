@@ -226,6 +226,11 @@ public class PlatformHelperImpl implements PlatformHelper {
     }
 
     @Override
+    public boolean canUseBlock(ServerPlayer player, BlockHitResult hit) {
+        return UseBlockCallback.EVENT.invoker().interact(player, player.level(), InteractionHand.MAIN_HAND, hit) == InteractionResult.PASS;
+    }
+
+    @Override
     public UseOnResult useOn(ServerPlayer player, ItemStack stack, BlockHitResult hit) {
         var result = UseBlockCallback.EVENT.invoker().interact(player, player.level(), InteractionHand.MAIN_HAND, hit);
         if (result != InteractionResult.PASS) return new UseOnResult.Handled(result);

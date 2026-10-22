@@ -130,6 +130,49 @@ public class TurtleAPI implements ILuaAPI {
         });
     }
 
+    /**
+     * Discover registered machine adapters, their available actions and current state.
+     * @param x Right offset.
+     * @param y Up offset.
+     * @param z Forward offset.
+     * @param options Optional face and sneak options.
+     * @return True and a table keyed by adapter ID, or false and a reason.
+     * @throws LuaException If coordinates or options are invalid.
+     */
+    @LuaFunction
+    public final MethodResult getInteractionsAt(double x, double y, double z, Optional<Map<?, ?>> options) throws LuaException {
+        validateTargetCoordinates(x, y, z);
+        return trackCommand(new TurtleAdapterCommand((int) x, (int) y, (int) z, null, "", Map.of(), TurtleInteractionOptions.parse(options)));
+    }
+
+    /**
+     * Execute a named machine action provided by a mod's registered adapter.
+     * @param x Right offset.
+     * @param y Up offset.
+     * @param z Forward offset.
+     * @param adapter Namespaced adapter ID from getInteractionsAt.
+     * @param action An available action name.
+     * @param arguments Optional action arguments table.
+     * @param options Optional face and sneak options.
+     * @return True and the adapter result table, or false and a reason.
+     * @throws LuaException If arguments are invalid or too large.
+     */
+    @LuaFunction
+    public final MethodResult interactAt(double x, double y, double z, String adapter, String action, Optional<Map<?, ?>> arguments, Optional<Map<?, ?>> options) throws LuaException {
+        validateTargetCoordinates(x, y, z);
+        var id = net.minecraft.resources.ResourceLocation.tryParse(adapter);
+        if (id == null || !adapter.contains(":")) throw new LuaException("Expected a namespaced adapter ID");
+        if (action.isEmpty() || action.length() > 128) throw new LuaException("Action name must contain 1 to 128 characters");
+        return trackCommand(new TurtleAdapterCommand((int) x, (int) y, (int) z, id, action,
+            TurtleInteractionData.copy(arguments.orElse(Map.of())), TurtleInteractionOptions.parse(options)));
+    }
+
+    private static void validateTargetCoordinates(double x, double y, double z) throws LuaException {
+        for (var value : new double[]{ x, y, z }) {
+            if (!Double.isFinite(value) || value != Math.floor(value) || Math.abs(value) > TurtleTarget.REACH) throw new LuaException("Coordinates must be integers within reach (4.5 blocks)");
+        }
+    }
+
     private MethodResult interactAt(double x, double y, double z, TurtleInteractAtCommand.Action action, Optional<Map<?, ?>> options, int count, int slot) throws LuaException {
         for (var value : new double[]{ x, y, z }) {
             if (!Double.isFinite(value) || value != Math.floor(value) || Math.abs(value) > TurtleTarget.REACH) throw new LuaException("Coordinates must be integers within reach (4.5 blocks)");

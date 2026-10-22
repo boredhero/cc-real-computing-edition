@@ -46,6 +46,10 @@ public interface ComputerCraftAPIService {
         return instance == null ? Services.raise(ComputerCraftAPIService.class, Instance.ERROR) : instance;
     }
 
+    void registerTurtleInteraction(net.minecraft.resources.ResourceLocation id, dan200.computercraft.api.turtle.TurtleInteraction adapter);
+
+    ItemStack copyPocketComputer(net.minecraft.server.level.ServerLevel level, ItemStack source);
+
     String getInstalledVersion();
 
     int createUniqueNumberedSaveDir(MinecraftServer server, String parentSubPath);

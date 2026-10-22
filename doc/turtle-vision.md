@@ -233,3 +233,10 @@ The final NeoForge run passed all eight new interaction tests and 124 of 125 req
 game tests overall. The existing intermittent double-chest test and optional treasure-loot
 test failed; all 125 required tests passed in the preceding run. Unit suites passed
 1,650 tests (13 skipped). Full-pack testing is pending.
+
+## Mod-defined machine controls
+
+`turtle.getInteractionsAt(x, y, z, options?)` discovers registered adapters and
+their state/actions. `turtle.interactAt(x, y, z, adapter, action, arguments?, options?)`
+executes a named action through the same reach, visibility and protection checks.
+See [the adapter API](turtle-adapters.md) for Lua examples and Java registration.

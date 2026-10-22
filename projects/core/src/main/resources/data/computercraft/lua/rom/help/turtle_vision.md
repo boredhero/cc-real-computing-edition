@@ -40,3 +40,12 @@ Held items:
 Event: turtle_item_use(reason,elapsedTicks). Other commands fail during use.
 Yaw is relative to facing; pitch is positive down. Shutdown/unload cancels.
 Use requires normal server-side item behavior; custom client GUIs need adapters.
+
+Mod-defined machine controls:
+
+* turtle.getInteractionsAt(x,y,z,options) -> true, adapters
+* turtle.interactAt(x,y,z,adapter,action,arguments,options) -> true, result
+
+Adapters expose state and named actions registered by other mods. Both calls
+check reach, visibility and protection. Discovery includes actions and state
+for each namespaced adapter ID. Machine-specific locks also apply.

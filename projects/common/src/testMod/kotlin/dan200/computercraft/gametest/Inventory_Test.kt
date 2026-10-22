@@ -17,6 +17,7 @@ import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import kotlin.time.Duration.Companion.milliseconds
 
 class Inventory_Test {
     /**
@@ -78,15 +79,24 @@ class Inventory_Test {
      */
     @GameTest
     fun Double_chest_size(helper: GameTestHelper) = helper.sequence {
-        // FIXME: There's several ticks at the start of this test, where the chest sends block updates, which causes the
-        //  peripheral to be (re)created. Wait for those to expire.
-        thenIdle(2)
-
         thenOnComputer {
-            getApi<PeripheralAPI>().call(context, ObjectArguments("left", "size")).await()
-                .assertArrayEquals(54, message = "Has 54 slots")
-            getApi<PeripheralAPI>().call(context, ObjectArguments("left", "pushItems", "right", 1)).await()
-                .assertArrayEquals(32, message = "Moved 32 items into a double chest")
+            // Initial chest neighbour updates may detach the peripheral after a call has been queued.
+            // GuardedLuaContext returns null WITHOUT executing that call. Retry only that cancellation,
+            // never a successful transfer (even one which moved zero items).
+            suspend fun callAttached(method: String, vararg args: Any?): Array<out Any?> {
+                repeat(10) {
+                    val result = callPeripheral("left", method, *args)
+                    if (result != null) return result
+                    sleep(50.milliseconds)
+                }
+                error("Chest peripheral did not settle for $method")
+            }
+            callAttached("size").assertArrayEquals(54, message = "Has 54 slots")
+            callAttached("pushItems", "right", 1).assertArrayEquals(32, message = "Moved 32 items into a double chest")
+        }
+        thenExecute {
+            helper.assertContainerExactly(BlockPos(4, 2, 2), listOf())
+            helper.assertContainerExactly(BlockPos(0, 2, 2), listOf(ItemStack(Items.DIRT, 32)))
         }
     }
 

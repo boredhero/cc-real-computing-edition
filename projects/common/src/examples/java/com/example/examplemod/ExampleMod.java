@@ -46,6 +46,8 @@ public final class ExampleMod {
         });
         // @end region=details
 
+        ComputerCraftAPI.registerTurtleInteraction(
+            net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(MOD_ID, "lever"), new ExampleTurtleInteraction());
         ExampleAPI.register();
     }
 }

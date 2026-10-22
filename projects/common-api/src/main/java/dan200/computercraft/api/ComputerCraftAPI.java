@@ -37,6 +37,29 @@ import org.jspecify.annotations.Nullable;
 public final class ComputerCraftAPI {
     public static final String MOD_ID = "computercraft";
 
+    /**
+     * Register named machine controls for turtle discovery and interaction. Call once during mod setup.
+     * Duplicate IDs are rejected. This does not expose arbitrary GUI packets or client screens.
+     * @param id A namespaced adapter ID owned by your mod.
+     * @param adapter The server-side implementation.
+     */
+    public static void registerTurtleInteraction(net.minecraft.resources.ResourceLocation id, dan200.computercraft.api.turtle.TurtleInteraction adapter) {
+        getInstance().registerTurtleInteraction(id, adapter);
+    }
+
+    /**
+     * Make an independent pocket copy, even when its source is offline. Call on the server thread.
+     * The returned item gets a fresh UUID and inherits source files at first boot; the source is unchanged.
+     * Use this for duplication, never ordinary transfers or upgrades.
+     * @param level The source world.
+     * @param source A pocket computer item.
+     * @return An independent item copy.
+     * @throws IllegalArgumentException If the source is not a pocket computer.
+     */
+    public static net.minecraft.world.item.ItemStack copyPocketComputer(net.minecraft.server.level.ServerLevel level, net.minecraft.world.item.ItemStack source) {
+        return getInstance().copyPocketComputer(level, source);
+    }
+
     public static String getInstalledVersion() {
         return getInstance().getInstalledVersion();
     }

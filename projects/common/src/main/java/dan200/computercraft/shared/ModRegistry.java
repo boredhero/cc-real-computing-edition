@@ -319,6 +319,11 @@ public final class ModRegistry {
             .persistent(net.minecraft.core.UUIDUtil.CODEC).networkSynchronized(net.minecraft.core.UUIDUtil.STREAM_CODEC)
         );
 
+        /** The persistent activation token used to separate offline pocket copies. */
+        public static final RegistryEntry<DataComponentType<java.util.UUID>> POCKET_TOKEN = register("pocket_token", b -> b
+            .persistent(net.minecraft.core.UUIDUtil.CODEC).networkSynchronized(net.minecraft.core.UUIDUtil.STREAM_CODEC)
+        );
+
         /**
          * The legacy numeric storage ID of a computer.
          */
